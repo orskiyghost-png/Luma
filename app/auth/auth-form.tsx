@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { signIn, signInWithGoogle, signUp, type AuthState } from "./actions";
+import { signInWithGoogleBrowser } from "@/lib/supabase/google";
+import { signIn, signUp, type AuthState } from "./actions";
 
 const initialState: AuthState = { error: null };
 
@@ -15,9 +16,19 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
   const [mode, setMode] = useState(initialMode);
   const [signUpState, signUpAction, signUpPending] = useActionState(signUp, initialState);
   const [signInState, signInAction, signInPending] = useActionState(signIn, initialState);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [googlePending, setGooglePending] = useState(false);
   const isSignup = mode === "signup";
   const state = isSignup ? signUpState : signInState;
   const pending = isSignup ? signUpPending : signInPending;
+
+  async function handleGoogle() {
+    setGoogleError(null);
+    setGooglePending(true);
+    const error = await signInWithGoogleBrowser();
+    if (error) setGoogleError(error);
+    if (error) setGooglePending(false);
+  }
 
   return (
     <div className="form-card">
@@ -31,7 +42,7 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
       </div>
 
       {message && <p className="mb-4 rounded-xl bg-tide/10 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
-      {state.error && <p className="error-message mb-4">{state.error}</p>}
+      {(state.error || googleError) && <p className="error-message mb-4">{googleError ?? state.error}</p>}
 
       <form action={isSignup ? signUpAction : signInAction} className="grid gap-4">
         {isSignup && <div className="field"><label htmlFor="displayName">Имя</label><input id="displayName" name="displayName" placeholder="Как вас называть" autoComplete="name" /></div>}
@@ -42,7 +53,7 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
       </form>
 
       <div className="my-5 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.15em] text-slate-400"><span className="h-px flex-1 bg-slate-200" />или<span className="h-px flex-1 bg-slate-200" /></div>
-      <form action={signInWithGoogle}><button className="secondary-button w-full" type="submit">Продолжить через Google</button></form>
+      <button className="secondary-button w-full disabled:cursor-wait disabled:opacity-60" type="button" onClick={handleGoogle} disabled={googlePending}>{googlePending ? "Открываем Google…" : "Продолжить через Google"}</button>
 
       <p className="mt-7 text-center text-sm text-slate-500">{isSignup ? "Уже есть аккаунт?" : "Впервые в Luma?"}{" "}<button type="button" className="font-black text-ink underline decoration-tide decoration-2 underline-offset-4" onClick={() => setMode(isSignup ? "signin" : "signup")}>{isSignup ? "Войти" : "Зарегистрироваться"}</button></p>
       <Link href="/" className="mt-6 block text-center text-xs font-bold text-slate-400 hover:text-ink">← Вернуться на главную</Link>

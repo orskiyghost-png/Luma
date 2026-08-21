@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -56,19 +55,6 @@ export async function signIn(_previous: AuthState, formData: FormData): Promise<
   if (error) return { error: "Не удалось войти. Проверьте email и пароль." };
 
   redirect("/profile");
-}
-
-export async function signInWithGoogle() {
-  const requestHeaders = await headers();
-  const origin = requestHeaders.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: `${origin}/auth/callback?next=/profile` },
-  });
-
-  if (error || !data.url) redirect("/auth?message=Google%20OAuth%20пока%20не%20настроен");
-  redirect(data.url);
 }
 
 export async function signOut() {
