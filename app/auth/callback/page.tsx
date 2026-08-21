@@ -6,20 +6,31 @@ import { createClient } from "@/lib/supabase/client";
 
 /**
  * Страница возврата после Google.
- * Supabase возвращает сессию в хэше адреса (#access_token=...).
- * Браузерный клиент сам распознаёт её и сохраняет в cookie,
+ * Поддерживает implicit-поток Supabase (#access_token=... в адресе):
+ * браузерный клиент сам распознаёт сессию и сохраняет её в cookie,
  * после чего мы отправляем пользователя в профиль.
  */
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
+  const [details, setDetails] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
 
+    // Диагностика возврата: имена параметров (не значения!) и текст ошибки,
+    // если Supabase вернул ошибку вместо токена.
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
+    const paramNames = [...new Set([...hash.keys(), ...query.keys()])];
+    const returnedError =
+      hash.get("error_description") ??
+      hash.get("error") ??
+      query.get("error_description") ??
+      query.get("error");
+
     async function waitForSession() {
-      // Даём клиенту время обработать #access_token из адреса страницы.
-      for (let attempt = 0; attempt < 10; attempt += 1) {
+      for (let attempt = 0; attempt < 15; attempt += 1) {
         if (cancelled) return;
         const { data } = await supabase.auth.getSession();
         if (data.session) {
@@ -29,7 +40,12 @@ export default function AuthCallbackPage() {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
       if (!cancelled) {
-        setError("Не удалось завершить вход через Google. Попробуйте ещё раз.");
+        if (returnedError) {
+          setError(`Google вернул ошибку: ${returnedError}`);
+        } else {
+          setError("Сессия не пришла от Supabase. Попробуйте войти ещё раз.");
+        }
+        setDetails(paramNames.length > 0 ? `Параметры возврата: ${paramNames.join(", ")}` : "Параметры возврата отсутствуют.");
       }
     }
 
@@ -45,7 +61,8 @@ export default function AuthCallbackPage() {
         {error ? (
           <>
             <h1 className="text-2xl font-black tracking-tight">Вход не завершён</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{error}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{error}</p>
+            {details && <p className="mt-2 break-words text-xs leading-5 text-slate-400">{details}</p>}
             <Link href="/auth" className="primary-button mt-6 inline-flex">Вернуться ко входу</Link>
           </>
         ) : (

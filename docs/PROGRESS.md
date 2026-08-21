@@ -31,9 +31,14 @@
 - Для Google OAuth сначала включить Google в Supabase → Authentication →
   Providers и настроить redirect URL `/auth/callback`.
 
-**Осталось / известные проблемы:**
-- Новую миграцию Фазы 2 нужно применить в Supabase SQL Editor:
-  `supabase/migrations/20260821010000_phase2_auth_profile.sql`.
+- Найдена и устранена причина «An unexpected response was received from
+  the server» при регистрации по почте: redirect() внутри server action
+  получал адрес с кириллицей, а не-ASCII символы запрещены в заголовке
+  x-action-redirect (ERR_INVALID_CHAR, POST /auth 500). Сообщение теперь
+  кодируется через encodeURIComponent; подтверждено логами сервера.
+- Страница /auth/callback показывает имена параметров возврата (без
+  значений токенов) и текст ошибки Google, если вход не удался — это
+  помогает отличать проблемы настроек от проблем кода.
 - Google OAuth требует Client ID и Client Secret из Google Cloud Console;
   эти значения вводятся в настройках Supabase, не в код и не в чат.
 - Загрузка файлов аватарок через Supabase Storage будет отдельным улучшением;

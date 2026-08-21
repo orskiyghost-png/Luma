@@ -43,7 +43,9 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
 
   if (error) return { error: error.message };
   if (data.session) redirect("/profile");
-  redirect("/auth?message=Проверьте почту%20для%20подтверждения%20аккаунта");
+  // Адрес перенаправления должен содержать только ASCII-символы:
+  // кириллица в заголовке x-action-redirect роняет сервер с ERR_INVALID_CHAR.
+  redirect(`/auth?message=${encodeURIComponent("Проверьте почту и подтвердите аккаунт по ссылке из письма")}`);
 }
 
 export async function signIn(_previous: AuthState, formData: FormData): Promise<AuthState> {
