@@ -1,5 +1,10 @@
 -- ============================================================================
 -- Фаза 1: базовая схема данных + Row Level Security
+--
+-- Это одноразовая миграция для запуска в чистой базе. Она НЕ удаляет таблицы
+-- и данные: повторный запуск после ошибки должен делать откат транзакции, а не
+-- пытаться чистить схему через DROP TABLE CASCADE.
+-- ============================================================================
 -- Таблицы: profiles, markers, marker_zones, reactions, messages,
 --          reports, live_locations, admin_actions
 --
@@ -11,29 +16,12 @@
 --   Включить показ себя может только подтверждённый 18+. Opt-in по умолчанию.
 -- ============================================================================
 
+-- Вся схема применяется атомарно: если любой шаг упадёт, PostgreSQL
+-- откатит весь запуск, и не останется частично созданных таблиц.
+begin;
+
 -- Географическое расширение Postgres (для координат и полигонов)
 create extension if not exists postgis;
-
--- ----------------------------------------------------------------------------
--- Очистка при повторном запуске (если миграция уже частично применялась).
--- Безопасно: на чистой базе ничего не удаляет, т.к. таблиц ещё нет.
--- ----------------------------------------------------------------------------
-drop table if exists
-  public.admin_actions,
-  public.live_locations,
-  public.reports,
-  public.messages,
-  public.reactions,
-  public.marker_zones,
-  public.markers,
-  public.profiles
-cascade;
-
--- Триггер не удаляем отдельно: drop table ... cascade уже убирает его вместе
--- с таблицей, а "drop trigger ... on <таблица>" падает, если таблицы нет.
-drop function if exists public.touch_updated_at();
-drop function if exists public.current_user_is_adult();
-drop function if exists public.my_profile();
 
 -- ----------------------------------------------------------------------------
 -- ПРОФИЛИ
@@ -371,3 +359,5 @@ end $$;
 create trigger live_locations_touch
   before update on public.live_locations
   for each row execute function public.touch_updated_at();
+
+commit;
