@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (request.nextUrl.pathname.startsWith("/profile")) {
+    if (request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map")) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
       url.searchParams.set("message", "Добавьте ключи Supabase в настройках Freebuff");
@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/profile") && !user) {
+  if ((request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map")) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
     url.searchParams.set("returnTo", request.nextUrl.pathname);
@@ -56,5 +56,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/auth/callback"],
+  matcher: ["/profile/:path*", "/map/:path*", "/auth/callback"],
 };

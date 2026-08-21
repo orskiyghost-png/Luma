@@ -41,6 +41,8 @@ export async function GET() {
     keyLength: key.length,
     // Только факт наличия сервисного ключа (нужен для авто-подтверждения email в dev).
     serviceKeyPresent: (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").length > 0,
+    // Только факт наличия ключа карт (Фаза 3).
+    mapTilerKeyPresent: (process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "").length > 0,
   };
 
   if (trimmed && key) {
