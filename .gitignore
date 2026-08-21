@@ -1,0 +1,32 @@
+# --- Секреты: НИКОГДА не коммитить ---
+.env
+.env.*
+!.env.example
+
+# --- Зависимости ---
+node_modules/
+
+# --- Сборка Next.js ---
+.next/
+out/
+build/
+dist/
+
+# --- Логи и кэш ---
+*.log
+npm-debug.log*
+yarn-error.log*
+.turbo/
+.vercel/
+
+# --- Supabase локальные данные ---
+supabase/.temp/
+supabase/.branches/
+
+# --- Редакторы / ОС ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
