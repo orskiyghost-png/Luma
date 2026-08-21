@@ -63,6 +63,40 @@ function readCredentials(formData: FormData) {
   };
 }
 
+/**
+ * DEV-лечение «старых» аккаунтов: зарегистрированных до появления
+ * авто-подтверждения. Находит пользователя по email через Admin API
+ * и подтверждает его почту. Только dev + сервисный ключ.
+ */
+async function devConfirmExistingUser(email: string): Promise<boolean> {
+  const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !serviceKey || process.env.NODE_ENV === "production") return false;
+
+  try {
+    const listResponse = await fetch(`${base}/auth/v1/admin/users?per_page=200`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    });
+    if (!listResponse.ok) return false;
+    const payload = (await listResponse.json()) as { users?: Array<{ id: string; email?: string }> };
+    const target = payload.users?.find((u) => u.email?.toLowerCase() === email);
+    if (!target) return false;
+
+    const confirm = await fetch(`${base}/auth/v1/admin/users/${target.id}`, {
+      method: "PUT",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email_confirm: true }),
+    });
+    return confirm.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function signUp(_previous: AuthState, formData: FormData): Promise<AuthState> {
   const { email, password } = readCredentials(formData);
   const dateOfBirth = String(formData.get("dateOfBirth") ?? "");
@@ -101,7 +135,19 @@ export async function signIn(_previous: AuthState, formData: FormData): Promise<
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "Не удалось войти. Проверьте email и пароль." };
+  if (error) {
+    // Аккаунт создан раньше, но почта так и не была подтверждена
+    // (письма с бесплатного тарифа не доходили). В dev подтверждаем сами.
+    if (/confirm/i.test(error.message)) {
+      const fixed = await devConfirmExistingUser(email);
+      if (fixed) {
+        const retry = await supabase.auth.signInWithPassword({ email, password });
+        if (!retry.error) redirect("/profile");
+      }
+      return { error: "Аккаунт найден, но почта не подтверждена. Попробуйте войти ещё раз." };
+    }
+    return { error: "Не удалось войти. Проверьте email и пароль." };
+  }
 
   redirect("/profile");
 }
