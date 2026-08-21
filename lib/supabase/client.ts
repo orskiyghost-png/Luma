@@ -20,5 +20,11 @@ export function createClient() {
   return createBrowserClient(
     normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      // Google-вход возвращает сессию в хэше адреса (#access_token=...).
+      // Библиотека по умолчанию ждёт PKCE-код (?code=...) и игнорирует хэш,
+      // поэтому явно включаем implicit-поток.
+      auth: { flowType: "implicit" },
+    },
   );
 }
