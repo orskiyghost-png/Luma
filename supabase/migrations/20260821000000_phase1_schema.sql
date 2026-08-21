@@ -15,6 +15,26 @@
 create extension if not exists postgis;
 
 -- ----------------------------------------------------------------------------
+-- Очистка при повторном запуске (если миграция уже частично применялась).
+-- Безопасно: на чистой базе ничего не удаляет, т.к. таблиц ещё нет.
+-- ----------------------------------------------------------------------------
+drop table if exists
+  public.admin_actions,
+  public.live_locations,
+  public.reports,
+  public.messages,
+  public.reactions,
+  public.marker_zones,
+  public.markers,
+  public.profiles
+cascade;
+
+drop trigger if exists live_locations_touch on public.live_locations;
+drop function if exists public.touch_updated_at();
+drop function if exists public.current_user_is_adult();
+drop function if exists public.my_profile();
+
+-- ----------------------------------------------------------------------------
 -- ПРОФИЛИ
 -- ----------------------------------------------------------------------------
 create table public.profiles (
@@ -36,6 +56,18 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
+-- Помощник: своя строка профиля, читается в обход RLS (чтобы политики
+-- этой же таблицы не зацикливались)
+create or replace function public.my_profile()
+returns public.profiles
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select * from public.profiles where user_id = auth.uid()
+$$;
+
 -- Профиль видит и редактирует только владелец
 create policy "profiles_select_own"
   on public.profiles for select to authenticated
@@ -50,10 +82,12 @@ create policy "profiles_update_own"
   using (user_id = auth.uid())
   with check (
     user_id = auth.uid()
-    -- роль и банн нельзя менять самому — только через админку/сервисный ключ
-    and role = (select p.role from public.profiles p where p.user_id = auth.uid())
-    and banned = (select p.banned from public.profiles p where p.user_id = auth.uid())
-    and age_verified_adult >= (select p.age_verified_adult from public.profiles p where p.user_id = auth.uid())
+    -- роль, бан и возрастное подтверждение нельзя менять самому —
+    -- сверяемся с текущими значениями через security-definer функцию
+    -- (прямой подзапрос к этой же таблице вызвал бы бесконечную рекурсию RLS)
+    and role = (select p.role from public.my_profile() p)
+    and banned = (select p.banned from public.my_profile() p)
+    and age_verified_adult >= (select p.age_verified_adult from public.my_profile() p)
   );
 
 -- ----------------------------------------------------------------------------
@@ -180,10 +214,10 @@ create index messages_dialog_idx on public.messages (sender_id, recipient_id, cr
 alter table public.messages enable row level security;
 
 -- Видит диалог только его участник
+-- (у политик SELECT допустим только USING — WITH CHECK тут запрещён Postgres)
 create policy "messages_select_participants"
   on public.messages for select to authenticated
-  using (sender_id = auth.uid() or recipient_id = auth.uid())
-  with check (true);
+  using (sender_id = auth.uid() or recipient_id = auth.uid());
 
 create policy "messages_insert_own"
   on public.messages for insert to authenticated
@@ -262,9 +296,10 @@ security definer
 set search_path = public
 stable
 as $$
-  select exists (
-    select 1 from public.profiles
-    where user_id = auth.uid() and age_verified_adult = true and banned = false
+  select coalesce(
+    (select age_verified_adult from public.my_profile() p
+     where p.banned = false),
+    false
   );
 $$;
 
