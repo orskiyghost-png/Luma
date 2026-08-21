@@ -29,7 +29,8 @@ drop table if exists
   public.profiles
 cascade;
 
-drop trigger if exists live_locations_touch on public.live_locations;
+-- Триггер не удаляем отдельно: drop table ... cascade уже убирает его вместе
+-- с таблицей, а "drop trigger ... on <таблица>" падает, если таблицы нет.
 drop function if exists public.touch_updated_at();
 drop function if exists public.current_user_is_adult();
 drop function if exists public.my_profile();
