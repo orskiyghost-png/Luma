@@ -1,7 +1,47 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { normalizeSupabaseUrl } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
+
+/**
+ * DEV-удобство: на бесплатном тарифе Supabase письма подтверждения
+ * почти не доходят (жёсткие лимиты + спам-фильтры). Пока приложение
+ * работает в режиме разработки и доступен сервисный ключ, мы сами
+ * подтверждаем email нового пользователя через Admin API и сразу
+ * входим в аккаунт — письмо не требуется.
+ *
+ * В production (NODE_ENV === "production") этот путь отключён:
+ * там подтверждение почты обязательно.
+ */
+async function tryDevAutoConfirmAndSignIn(
+  userId: string,
+  email: string,
+  password: string,
+): Promise<boolean> {
+  const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !serviceKey || process.env.NODE_ENV === "production") return false;
+
+  try {
+    const response = await fetch(`${base}/auth/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email_confirm: true }),
+    });
+    if (!response.ok) return false;
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return !error && Boolean(data.session);
+  } catch {
+    return false;
+  }
+}
 
 export type AuthState = { error: string | null };
 
@@ -43,6 +83,13 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
 
   if (error) return { error: error.message };
   if (data.session) redirect("/profile");
+
+  // Dev-режим: подтверждаем аккаунт сами и входим без письма.
+  if (data.user) {
+    const signedIn = await tryDevAutoConfirmAndSignIn(data.user.id, email, password);
+    if (signedIn) redirect("/profile");
+  }
+
   // Адрес перенаправления должен содержать только ASCII-символы:
   // кириллица в заголовке x-action-redirect роняет сервер с ERR_INVALID_CHAR.
   redirect(`/auth?message=${encodeURIComponent("Проверьте почту и подтвердите аккаунт по ссылке из письма")}`);

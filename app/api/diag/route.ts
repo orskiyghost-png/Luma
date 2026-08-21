@@ -39,6 +39,8 @@ export async function GET() {
     keyPresent: key.length > 0,
     keyLooksLikeJwt: key.startsWith("ey"),
     keyLength: key.length,
+    // Только факт наличия сервисного ключа (нужен для авто-подтверждения email в dev).
+    serviceKeyPresent: (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").length > 0,
   };
 
   if (trimmed && key) {

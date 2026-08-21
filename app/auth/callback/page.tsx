@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 
 /**
  * Страница возврата после Google.
- * Поддерживает implicit-поток Supabase (#access_token=... в адресе):
- * браузерный клиент сам распознаёт сессию и сохраняет её в cookie,
- * после чего мы отправляем пользователя в профиль.
+ *
+ * Работает детерминированно и не зависит от внутреннего flowType библиотеки:
+ * 1. implicit-поток (основной): Supabase возвращает сессию в хэше адреса
+ *    (#access_token=...&refresh_token=...) — мы сами вызываем setSession.
+ * 2. PKCE (запасной): приходит ?code=... — обмениваем его на сессию.
  */
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
@@ -18,38 +20,82 @@ export default function AuthCallbackPage() {
     let cancelled = false;
     const supabase = createClient();
 
-    // Диагностика возврата: имена параметров (не значения!) и текст ошибки,
-    // если Supabase вернул ошибку вместо токена.
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const query = new URLSearchParams(window.location.search);
-    const paramNames = [...new Set([...hash.keys(), ...query.keys()])];
-    const returnedError =
-      hash.get("error_description") ??
-      hash.get("error") ??
-      query.get("error_description") ??
-      query.get("error");
 
-    async function waitForSession() {
-      for (let attempt = 0; attempt < 15; attempt += 1) {
-        if (cancelled) return;
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          window.location.replace("/profile");
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
+    function fail(message: string, detail?: string) {
       if (!cancelled) {
-        if (returnedError) {
-          setError(`Google вернул ошибку: ${returnedError}`);
-        } else {
-          setError("Сессия не пришла от Supabase. Попробуйте войти ещё раз.");
-        }
-        setDetails(paramNames.length > 0 ? `Параметры возврата: ${paramNames.join(", ")}` : "Параметры возврата отсутствуют.");
+        setError(message);
+        if (detail) setDetails(detail);
       }
     }
 
-    void waitForSession();
+    async function completeLogin() {
+      // 0) Если Supabase вернул ошибку вместо токена — показываем её текст.
+      const returnedError =
+        hash.get("error_description") ??
+        hash.get("error") ??
+        query.get("error_description") ??
+        query.get("error");
+      if (returnedError) {
+        fail(`Google вернул ошибку: ${returnedError}`);
+        return;
+      }
+
+      // Уже вошли (например, сессия сохранилась ранее)?
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          window.history.replaceState(null, "", "/auth/callback");
+          window.location.replace("/profile");
+          return;
+        }
+      } catch {
+        // игнорируем — просто продолжаем установку сессии.
+      }
+
+      // 1) Основной путь: implicit-поток, сессия в хэше.
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (cancelled) return;
+        if (error) {
+          fail(`Supabase не принял сессию: ${error.message}`);
+          return;
+        }
+        window.history.replaceState(null, "", "/auth/callback");
+        window.location.replace("/profile");
+        return;
+      }
+
+      // 2) Запасной путь: PKCE (?code=...).
+      const code = query.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (error) {
+          fail(`Не удалось завершить вход по коду: ${error.message}`);
+          return;
+        }
+        window.history.replaceState(null, "", "/auth/callback");
+        window.location.replace("/profile");
+        return;
+      }
+
+      const paramNames = [...new Set([...hash.keys(), ...query.keys()])];
+      fail(
+        "Сессия не пришла от Supabase. Попробуйте войти ещё раз.",
+        paramNames.length > 0
+          ? `Параметры возврата: ${paramNames.join(", ")}`
+          : "Параметры возврата отсутствуют.",
+      );
+    }
+
+    void completeLogin();
     return () => {
       cancelled = true;
     };
