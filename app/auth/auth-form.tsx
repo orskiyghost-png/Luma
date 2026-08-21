@@ -44,7 +44,10 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
       {message && <p className="mb-4 rounded-xl bg-tide/10 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
       {(state.error || googleError) && <p className="error-message mb-4">{googleError ?? state.error}</p>}
 
-      <form action={isSignup ? signUpAction : signInAction} className="grid gap-4">
+      {/* suppressHydrationWarning: приватные браузеры (например, DuckDuckGo)
+          дописывают свои атрибуты в поля ввода и вызывают ложную ошибку
+          гидрации React — на работу формы это не влияет. */}
+      <form action={isSignup ? signUpAction : signInAction} className="grid gap-4" suppressHydrationWarning>
         {isSignup && <div className="field"><label htmlFor="displayName">Имя</label><input id="displayName" name="displayName" placeholder="Как вас называть" autoComplete="name" /></div>}
         <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required /></div>
         <div className="field"><label htmlFor="password">Пароль</label><input id="password" name="password" type="password" placeholder="Минимум 8 символов" autoComplete={isSignup ? "new-password" : "current-password"} minLength={8} required /></div>

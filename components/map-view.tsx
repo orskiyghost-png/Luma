@@ -14,52 +14,106 @@ type MapViewProps = {
 /**
  * Главный экран приложения — карта на весь экран.
  *
- * Приватность: геолокация НИКОГДА не запрашивается сама. Сначала пользователь
- * видит объяснение, зачем она нужна, и только по явному нажатию кнопки браузер
- * спрашивает разрешение. Отказ — нормальный сценарий, карта остаётся рабочей.
+ * Надёжность: основной вариант — быстрая векторная карта MapLibre.
+ * Если устройство/браузер не умеет WebGL (например, встроенные браузеры
+ * мессенджеров и приватные браузеры), через несколько секунд ожидания
+ * автоматически включается запасная карта OpenStreetMap — она работает
+ * везде и тоже поддерживает перемещение и геолокацию.
+ *
+ * Приватность: геолокация НИКОГДА не запрашивается сама — только после
+ * объяснения и явного нажатия кнопки пользователем.
  */
 export default function MapView({ styleUrl }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
 
+  const [mode, setMode] = useState<"checking" | "webgl" | "fallback">(
+    styleUrl ? "checking" : "fallback",
+  );
   const [askGeo, setAskGeo] = useState(false);
   const [locating, setLocating] = useState(false);
   const [city, setCity] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  // Создаём карту один раз, когда известен стиль.
+  // Текущий центр для запасной карты (iframe OSM).
+  const [center, setCenter] = useState<{ lat: number; lng: number }>({
+    lat: 55.7558,
+    lng: 37.6173,
+  });
+  const centerRef = useRef(center);
+  centerRef.current = center;
+
+  // Пытаемся запустить основную карту; если за 8 секунд она не загрузилась —
+  // переключаемся на запасную, чтобы пользователь никогда не видел пустоту.
   useEffect(() => {
-    if (!styleUrl || !containerRef.current || mapRef.current) return;
+    if (!styleUrl || mode !== "checking") return;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: styleUrl,
-      center: [37.6173, 55.7558], // Москва — нейтральный стартовый вид
-      zoom: 9,
-      attributionControl: false,
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
-    map.addControl(new maplibregl.AttributionControl({ compact: true }));
-    mapRef.current = map;
+    let settled = false;
+    let map: MapLibreMap | null = null;
 
-    // Не оставляем пользователя с молча пустым экраном: любая ошибка карты
-    // (нет WebGL, ключ отклонён, сеть) показывается понятным сообщением.
-    map.on("error", (event) => {
-      const message =
-        (event as unknown as { error?: { message?: string } }).error?.message ??
-        "Не удалось загрузить карту.";
-      setMapError(message);
-    });
+    const finishWebgl = () => {
+      if (!settled) {
+        settled = true;
+        setMode("webgl");
+      }
+    };
+
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current!,
+        style: styleUrl,
+        center: [centerRef.current.lng, centerRef.current.lat],
+        zoom: 9,
+        attributionControl: false,
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+      map.addControl(new maplibregl.AttributionControl({ compact: true }));
+
+      map.on("load", () => {
+        finishWebgl();
+      });
+
+      map.on("error", (event) => {
+        // Ошибки отдельных тайлов не должны убивать карту; реагируем только
+        // пока карта ещё считается «загружающейся».
+        if (!settled) {
+          const message =
+            (event as unknown as { error?: { message?: string } }).error?.message ?? "";
+          if (message) {
+            settled = true;
+            setMapError(message);
+            setMode("fallback");
+          }
+        }
+      });
+
+      mapRef.current = map;
+    } catch (error) {
+      settled = true;
+      setMapError(String(error).slice(0, 160));
+      setMode("fallback");
+      return () => {};
+    }
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        setMode("fallback");
+      }
+    }, 8000);
 
     return () => {
-      map.remove();
+      clearTimeout(timeout);
+      map?.remove();
       mapRef.current = null;
       markerRef.current = null;
     };
-  }, [styleUrl]);
+  }, [styleUrl, mode]);
 
+  /** Общая логика геолокации для обоих вариантов карты. */
   const locateUser = useCallback(() => {
     setAskGeo(false);
     setGeoError(null);
@@ -74,21 +128,23 @@ export default function MapView({ styleUrl }: MapViewProps) {
       (position) => {
         setLocating(false);
         const { longitude, latitude } = position.coords;
+        setCity(null);
+        setCenter({ lat: latitude, lng: longitude });
+
+        // Основная карта: перелёт и своя точка.
         const map = mapRef.current;
-        if (!map) return;
+        if (map && mode === "webgl") {
+          map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1600 });
 
-        map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1600 });
-
-        if (markerRef.current) {
-          markerRef.current.remove();
+          if (markerRef.current) markerRef.current.remove();
+          const element = document.createElement("div");
+          element.className = "luma-user-dot";
+          markerRef.current = new maplibregl.Marker({ element })
+            .setLngLat([longitude, latitude])
+            .addTo(map);
         }
-        const element = document.createElement("div");
-        element.className = "luma-user-dot";
-        markerRef.current = new maplibregl.Marker({ element })
-          .setLngLat([longitude, latitude])
-          .addTo(map);
 
-        // Определяем город по координатам (обратное геокодирование MapTiler).
+        // Город по координатам (обратное геокодирование MapTiler).
         const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
         if (key) {
           fetch(
@@ -111,7 +167,16 @@ export default function MapView({ styleUrl }: MapViewProps) {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
     );
-  }, []);
+  }, [mode]);
+
+  /** Запасная карта OpenStreetMap: рамка вокруг центра. */
+  const osmEmbedUrl = (() => {
+    const dLat = 0.03;
+    const dLng = 0.05;
+    const { lat, lng } = center;
+    const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat},${lng}`;
+  })();
 
   if (!styleUrl) {
     return (
@@ -129,23 +194,32 @@ export default function MapView({ styleUrl }: MapViewProps) {
   }
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden">
+    <main className="relative h-screen w-full overflow-hidden">
       {/* Слой карты */}
-      <div ref={containerRef} className="absolute inset-0" />
+      {mode !== "fallback" && <div ref={containerRef} className="absolute inset-0" />}
 
-      {/* Понятное сообщение об ошибке карты вместо пустого экрана */}
-      {mapError && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-[#f5f8f4] p-5">
-          <div className="form-card max-w-md text-center">
-            <h2 className="text-xl font-black tracking-tight">Карта не загрузилась</h2>
-            <p className="mt-3 break-words text-sm leading-6 text-slate-600">{mapError}</p>
-            <p className="mt-3 text-xs leading-5 text-slate-400">
-              Попробуйте обновить страницу. Если не поможет — возможно,
-              браузер не поддерживает WebGL или ключ карт указан неверно.
-            </p>
-            <Link href="/profile" className="secondary-button mt-6 inline-flex">В профиль</Link>
-          </div>
-        </div>
+      {/* Запасная карта OSM (работает даже без WebGL) */}
+      {mode === "fallback" && (
+        <>
+          <iframe
+            title="Карта"
+            src={osmEmbedUrl}
+            className="absolute inset-0 h-full w-full border-0"
+          />
+          {mapError && (
+            <div className="absolute left-1/2 top-20 z-10 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-xs leading-5 text-slate-500 shadow-xl">
+              Быстрая карта недоступна на этом устройстве{mapError ? ` (${mapError})` : ""}.
+              Показана упрощённая версия — всё остальное работает как обычно.
+              <button
+                type="button"
+                onClick={() => setMapError(null)}
+                className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink"
+              >
+                Понятно
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Верхняя панель поверх карты */}
