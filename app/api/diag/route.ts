@@ -45,6 +45,20 @@ export async function GET() {
     mapTilerKeyPresent: (process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "").length > 0,
   };
 
+  // Проверяем, что стиль карты реально отдаётся с этим ключом
+  // (показываем только код ответа, без значений и без тела).
+  const mapKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+  if (mapKey) {
+    try {
+      const styleRes = await fetch(
+        `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(mapKey)}`,
+      );
+      result.mapStyleStatus = styleRes.status;
+    } catch (error) {
+      result.mapStyleError = String(error).slice(0, 200);
+    }
+  }
+
   if (trimmed && key) {
     try {
       // Проверяем связку «адрес + ключ»: правильная конфигурация вернёт

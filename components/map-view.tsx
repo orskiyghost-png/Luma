@@ -27,6 +27,7 @@ export default function MapView({ styleUrl }: MapViewProps) {
   const [locating, setLocating] = useState(false);
   const [city, setCity] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   // Создаём карту один раз, когда известен стиль.
   useEffect(() => {
@@ -42,6 +43,15 @@ export default function MapView({ styleUrl }: MapViewProps) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
     mapRef.current = map;
+
+    // Не оставляем пользователя с молча пустым экраном: любая ошибка карты
+    // (нет WebGL, ключ отклонён, сеть) показывается понятным сообщением.
+    map.on("error", (event) => {
+      const message =
+        (event as unknown as { error?: { message?: string } }).error?.message ??
+        "Не удалось загрузить карту.";
+      setMapError(message);
+    });
 
     return () => {
       map.remove();
@@ -122,6 +132,21 @@ export default function MapView({ styleUrl }: MapViewProps) {
     <main className="relative h-screen w-screen overflow-hidden">
       {/* Слой карты */}
       <div ref={containerRef} className="absolute inset-0" />
+
+      {/* Понятное сообщение об ошибке карты вместо пустого экрана */}
+      {mapError && (
+        <div className="absolute inset-0 z-30 grid place-items-center bg-[#f5f8f4] p-5">
+          <div className="form-card max-w-md text-center">
+            <h2 className="text-xl font-black tracking-tight">Карта не загрузилась</h2>
+            <p className="mt-3 break-words text-sm leading-6 text-slate-600">{mapError}</p>
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              Попробуйте обновить страницу. Если не поможет — возможно,
+              браузер не поддерживает WebGL или ключ карт указан неверно.
+            </p>
+            <Link href="/profile" className="secondary-button mt-6 inline-flex">В профиль</Link>
+          </div>
+        </div>
+      )}
 
       {/* Верхняя панель поверх карты */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4">

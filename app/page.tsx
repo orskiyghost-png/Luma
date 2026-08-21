@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SiteHeader from "@/components/site-header";
 
 const highlights = [
   ["01", "Замечай важное", "Метки на карте помогают делиться обстановкой вокруг — без публикации домашнего адреса."],
@@ -9,6 +10,7 @@ const highlights = [
 export default function HomePage() {
   return (
     <main>
+      <SiteHeader />
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-14 px-5 py-16 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
         <div>
           <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-600">
