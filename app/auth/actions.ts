@@ -64,6 +64,45 @@ function readCredentials(formData: FormData) {
 }
 
 /**
+ * DEV-регистрация без письма: создаём пользователя напрямую через Admin API
+ * с сразу подтверждённой почтой. Supabase вообще не отправляет письмо,
+ * поэтому лимит «email rate limit exceeded» перестаёт мешать.
+ * Только dev + сервисный ключ; в production путь отключён.
+ */
+async function devAdminCreateUser(
+  email: string,
+  password: string,
+  metadata: Record<string, unknown>,
+): Promise<"ok" | "exists" | "failed"> {
+  const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!base || !serviceKey || process.env.NODE_ENV === "production") return "failed";
+
+  try {
+    const response = await fetch(`${base}/auth/v1/admin/users`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: metadata,
+      }),
+    });
+    if (response.ok) return "ok";
+    // 422 — пользователь с таким email уже существует.
+    if (response.status === 422) return "exists";
+    return "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
  * DEV-лечение «старых» аккаунтов: зарегистрированных до появления
  * авто-подтверждения. Находит пользователя по email через Admin API
  * и подтверждает его почту. Только dev + сервисный ключ.
@@ -107,6 +146,21 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
   if (getAge(dateOfBirth) < 16) return { error: "Регистрация доступна только с 16 лет." };
 
   const supabase = await createClient();
+
+  // DEV-режим: создаём аккаунт напрямую через Admin API и входим —
+  // письма не отправляются, лимиты почты не мешают.
+  const devResult = await devAdminCreateUser(email, password, {
+    date_of_birth: dateOfBirth,
+    display_name: displayName,
+  });
+  if (devResult === "ok" || devResult === "exists") {
+    const signedIn = await supabase.auth.signInWithPassword({ email, password });
+    if (!signedIn.error) redirect("/profile");
+    if (devResult === "exists") {
+      return { error: "Аккаунт с таким email уже существует. Переключитесь на «Войти»." };
+    }
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -115,7 +169,12 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
     },
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (/rate limit/i.test(error.message)) {
+      return { error: "Слишком много регистраций подряд. Подождите пару минут и попробуйте ещё раз." };
+    }
+    return { error: error.message };
+  }
   if (data.session) redirect("/profile");
 
   // Dev-режим: подтверждаем аккаунт сами и входим без письма.
