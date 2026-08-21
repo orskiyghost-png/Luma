@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #08111f;
+  --paper: #f5f8f4;
+  --muted: #7b8b95;
+  --line: rgba(8, 17, 31, 0.12);
+  --tide: #27b99a;
+  --coral: #ff8066;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(39, 185, 154, 0.12), transparent 28rem),
+    var(--paper);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.auth-shell {
+  min-height: calc(100vh - 80px);
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.25rem;
+}
+
+.form-card {
+  width: min(100%, 30rem);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 2rem;
+  box-shadow: 0 2rem 5rem rgba(8, 17, 31, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field label {
+  color: #53646e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: white;
+  padding: 0.8rem 0.9rem;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--tide);
+  box-shadow: 0 0 0 4px rgba(39, 185, 154, 0.14);
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  padding: 0.7rem 1rem;
+  font-weight: 800;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primary-button {
+  border: 0;
+  background: var(--ink);
+  color: white;
+  box-shadow: 0 0.8rem 1.5rem rgba(8, 17, 31, 0.15);
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+  transform: translateY(-2px);
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: white;
+}
+
+.error-message {
+  border-radius: 0.75rem;
+  background: #fff0ed;
+  padding: 0.75rem 0.9rem;
+  color: #a53c2d;
+  font-size: 0.9rem;
+}

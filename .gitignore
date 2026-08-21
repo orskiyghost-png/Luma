@@ -14,6 +14,7 @@ dist/
 
 # --- Логи и кэш ---
 *.log
+*.tsbuildinfo
 npm-debug.log*
 yarn-error.log*
 .turbo/

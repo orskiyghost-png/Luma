@@ -5,6 +5,47 @@
 
 ---
 
+## 2026-08-21 — Фаза 2: регистрация, вход и профиль
+
+**Сделано:**
+- Подтверждена успешная Фаза 1: Supabase вернул `ensure_policy: ""` без
+  ошибки, что означает успешное завершение служебных настроек RLS.
+- Создан рабочий каркас Next.js 15 + React 19 + TypeScript + Tailwind CSS.
+- Подключены Supabase SSR-клиенты для браузера, Server Components и
+  Server Actions; добавлен middleware для обновления сессии.
+- Созданы публичная landing page, страница `/auth`, защищённая страница
+  `/profile` и OAuth callback `/auth/callback`.
+- Реализованы email/password регистрация и вход с серверной проверкой
+  минимального возраста 16 лет.
+- Добавлен Google OAuth-переход через Supabase Auth.
+- Профиль можно редактировать: имя, описание, город, видимость города,
+  URL маленькой и большой аватарки.
+- Добавлена миграция `supabase/migrations/20260821010000_phase2_auth_profile.sql`:
+  после регистрации Supabase автоматически создаёт строку профиля.
+- Добавлена переменная `NEXT_PUBLIC_SITE_URL` в `env.example`.
+
+**Как проверить:**
+- `bun run typecheck` проходит без ошибок.
+- После применения миграции Фазы 2 открыть `/auth?mode=signup`, создать
+  аккаунт с датой рождения 16+, затем открыть `/profile` и сохранить данные.
+- Для Google OAuth сначала включить Google в Supabase → Authentication →
+  Providers и настроить redirect URL `/auth/callback`.
+
+**Осталось / известные проблемы:**
+- Новую миграцию Фазы 2 нужно применить в Supabase SQL Editor:
+  `supabase/migrations/20260821010000_phase2_auth_profile.sql`.
+- Google OAuth требует Client ID и Client Secret из Google Cloud Console;
+  эти значения вводятся в настройках Supabase, не в код и не в чат.
+- Загрузка файлов аватарок через Supabase Storage будет отдельным улучшением;
+  сейчас профиль принимает безопасные URL, чтобы не смешивать две фичи.
+
+**Нужно от заказчика:**
+- Применить миграцию Фазы 2 в Supabase SQL Editor.
+- Для Google-входа: создать OAuth Client в Google Cloud Console и включить
+  Google Provider в Supabase Authentication → Providers.
+
+---
+
 ## 2026-08-21 — Фаза 1: База данных и архитектура
 
 **Сделано:**
