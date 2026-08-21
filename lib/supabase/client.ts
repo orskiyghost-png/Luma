@@ -1,17 +1,19 @@
 import { createBrowserClient } from "@supabase/ssr";
 
 /**
- * Приводит адрес Supabase к каноническому виду.
- * Защищает от типичных опечаток в переменной окружения:
+ * Приводит адрес Supabase к каноническому виду — только схема и хост.
+ * Защищает от типичных ошибок в переменной окружения:
  * - лишний слэш в конце;
- * - случайно добавленный путь /auth/v1.
+ * - случайно скопированный путь вроде /rest/v1 или /auth/v1.
  */
 export function normalizeSupabaseUrl(raw: string | undefined): string {
   if (!raw) return "";
-  return raw
-    .trim()
-    .replace(/\/+$/, "")
-    .replace(/\/auth\/v1$/, "");
+  try {
+    const parsed = new URL(raw.trim());
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return raw.trim().replace(/\/+$/, "");
+  }
 }
 
 export function createClient() {
