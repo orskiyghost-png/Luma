@@ -18,10 +18,10 @@ type MapViewProps = {
 };
 
 const CATEGORY_ICON: Record<string, string> = {
-  dtp: "🚗",
-  police: "🚔",
-  hangout: "🎉",
-  other: "📌",
+  dtp: "◆",
+  police: "✚",
+  hangout: "✦",
+  other: "•",
 };
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -92,6 +92,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [popupPerson, setPopupPerson] = useState<NearbyPerson | null>(null);
   const nearbyMarkerRefs = useRef<Map<string, Marker>>(new Map());
 
+  const [showMarkers, setShowMarkers] = useState(true);
   const [markers, setMarkers] = useState<MarkerRow[]>(initialMarkers);
   const markersRef = useRef(markers);
   markersRef.current = markers;
@@ -197,6 +198,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       if (!m) return;
       markerRefs.current.forEach((mk) => mk.remove());
       markerRefs.current.clear();
+      if (!showMarkers) return;
 
       markersRef.current.forEach((row) => {
         const el = buildMarkerEl(row.category);
@@ -213,7 +215,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       return () => { map.off("load", syncMarkers); };
     }
     syncMarkers();
-  }, [mode, markers]);
+  }, [mode, markers, showMarkers]);
 
   // ====== Геолокация ======
   const locateUser = useCallback(() => {
@@ -292,7 +294,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
   const handleMapClick = useCallback(
     (e: MapMouseEvent) => {
-      if (!placing) return;
+      setPlacing(true);
       setPendingLat(e.lngLat.lat);
       setPendingLng(e.lngLat.lng);
       setPendingScreen(null);
@@ -300,7 +302,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       setPendingText("");
       setActionError(null);
     },
-    [placing],
+    [],
   );
 
   useEffect(() => {
@@ -481,7 +483,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full rounded-full border-2 border-white px-2 py-1 text-base shadow-lg"
                 style={{ ...fallbackPointStyle(row.lat, row.lng), backgroundColor: CATEGORY_COLOR[row.category] ?? "#778ca3" }}
               >
-                {CATEGORY_ICON[row.category] ?? "📍"}
+                {CATEGORY_ICON[row.category] ?? "•"}
               </button>
             ))}
           </div>
@@ -501,7 +503,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           <span className="text-base font-black tracking-tight text-ink">Luma</span>
         </Link>
         <div className="pointer-events-auto flex items-center gap-2">
-          {city && <span className="hidden rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur sm:block">📍 {city}</span>}
+          {city && <span className="hidden rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur sm:block">⌖ {city}</span>}
           <Link href="/messages" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Сообщения</Link>
           <Link href="/profile" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Профиль</Link>
         </div>
@@ -511,7 +513,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-wrap justify-center gap-3 px-4">
         <button type="button" onClick={() => setAskGeo(true)} disabled={locating}
           className="pointer-events-auto primary-button min-w-0 flex-1 shadow-xl disabled:cursor-wait disabled:opacity-70 sm:flex-none">
-          {locating ? "Определяем…" : "📍 Моё место"}
+          {locating ? "Определяем…" : "⌖ Моё место"}
         </button>
         <button
           type="button"
@@ -529,6 +531,10 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         >
           {placing ? "✕ Отмена" : "＋ Поставить метку"}
         </button>
+        <button type="button" aria-pressed={showMarkers} onClick={() => setShowMarkers((value) => !value)}
+          className={`pointer-events-auto min-w-0 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${showMarkers ? "bg-white/90 text-ink hover:bg-white" : "bg-slate-800 text-white"}`}>
+          {showMarkers ? "◌ Метки" : "◌ Метки скрыты"}
+        </button>
         <button
           type="button"
           onClick={handleToggleNearby}
@@ -537,7 +543,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
             showNearby ? "bg-tide text-ink" : "bg-white/90 text-ink hover:bg-white"
           }`}
         >
-          {nearbyLoading ? "Ищем…" : showNearby ? "🧑 Люди рядом ✓" : "🧑 Люди рядом"}
+          {nearbyLoading ? "Ищем…" : showNearby ? "◉ Люди рядом ✓" : "◉ Люди рядом"}
         </button>
       </div>
 
@@ -628,7 +634,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       {popupMarker && (
         <div className="absolute inset-0 z-30 grid place-items-center bg-ink/30 p-5 backdrop-blur-sm" onClick={() => setPopupMarker(null)}>
           <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-2xl">{CATEGORY_ICON[popupMarker.category] ?? "📍"}</div>
+            <div className="mb-2 text-2xl">{CATEGORY_ICON[popupMarker.category] ?? "•"}</div>
             <p className="text-sm font-bold text-ink">{CATEGORIES.find((c) => c.id === popupMarker.category)?.label ?? popupMarker.category}</p>
             <p className="mt-2 text-sm leading-6 text-slate-700">{popupMarker.text || "Без текста"}</p>
             <p className="mt-1 text-xs text-slate-400">
@@ -783,4 +789,4 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       )}
     </main>
   );
-}
+  }
