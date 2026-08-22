@@ -44,14 +44,33 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
       {message && <p className="mb-4 rounded-xl bg-tide/10 p-3 text-sm font-semibold text-emerald-800">{message}</p>}
       {(state.error || googleError) && <p className="error-message mb-4">{googleError ?? state.error}</p>}
 
-      {/* suppressHydrationWarning: приватные браузеры (например, DuckDuckGo)
-          дописывают свои атрибуты в поля ввода и вызывают ложную ошибку
-          гидрации React — на работу формы это не влияет. */}
+      {/* suppressHydrationWarning на КАЖДОМ поле ввода: приватные браузеры
+          (например, DuckDuckGo) дописывают свои атрибуты (data-ddg-*,
+          autofill и т.п.) прямо в <input> и ломают гидрацию React.
+          suppressHydrationWarning на <form> не защищает детей, поэтому
+          ставим его на самих input'ах. */}
       <form action={isSignup ? signUpAction : signInAction} className="grid gap-4" suppressHydrationWarning>
-        {isSignup && <div className="field"><label htmlFor="displayName">Имя</label><input id="displayName" name="displayName" placeholder="Как вас называть" autoComplete="name" /></div>}
-        <div className="field"><label htmlFor="email">Email</label><input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required /></div>
-        <div className="field"><label htmlFor="password">Пароль</label><input id="password" name="password" type="password" placeholder="Минимум 8 символов" autoComplete={isSignup ? "new-password" : "current-password"} minLength={8} required /></div>
-        {isSignup && <div className="field"><label htmlFor="dateOfBirth">Дата рождения</label><input id="dateOfBirth" name="dateOfBirth" type="date" autoComplete="bday" required /><p className="text-xs leading-5 text-slate-500">Нужна только для проверки минимального возраста 16 лет. Она не публикуется.</p></div>}
+        {isSignup && (
+          <div className="field">
+            <label htmlFor="displayName">Имя</label>
+            <input id="displayName" name="displayName" placeholder="Как вас называть" autoComplete="name" suppressHydrationWarning />
+          </div>
+        )}
+        <div className="field">
+          <label htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required suppressHydrationWarning />
+        </div>
+        <div className="field">
+          <label htmlFor="password">Пароль</label>
+          <input id="password" name="password" type="password" placeholder="Минимум 8 символов" autoComplete={isSignup ? "new-password" : "current-password"} minLength={8} required suppressHydrationWarning />
+        </div>
+        {isSignup && (
+          <div className="field">
+            <label htmlFor="dateOfBirth">Дата рождения</label>
+            <input id="dateOfBirth" name="dateOfBirth" type="date" autoComplete="bday" required suppressHydrationWarning />
+            <p className="text-xs leading-5 text-slate-500">Нужна только для проверки минимального возраста 16 лет. Она не публикуется.</p>
+          </div>
+        )}
         <button className="primary-button mt-2 w-full disabled:cursor-wait disabled:opacity-60" type="submit" disabled={pending}>{pending ? "Подождите…" : isSignup ? "Создать аккаунт" : "Войти"}</button>
       </form>
 

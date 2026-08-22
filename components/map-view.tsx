@@ -14,11 +14,10 @@ type MapViewProps = {
 /**
  * Главный экран приложения — карта на весь экран.
  *
- * Надёжность: основной вариант — быстрая векторная карта MapLibre.
- * Если устройство/браузер не умеет WebGL (например, встроенные браузеры
- * мессенджеров и приватные браузеры), через несколько секунд ожидания
- * автоматически включается запасная карта OpenStreetMap — она работает
- * везде и тоже поддерживает перемещение и геолокацию.
+ * Надёжность: основной вариант — быстрая векторная карта MapLibre, создаётся
+ * РОВНО ОДИН РАЗ. Если устройство/браузер не умеет WebGL (приватные браузеры,
+ * встроенные браузеры мессенджеров), через 8 секунд ожидания автоматически
+ * включается запасная карта OpenStreetMap — она работает везде.
  *
  * Приватность: геолокация НИКОГДА не запрашивается сама — только после
  * объяснения и явного нажатия кнопки пользователем.
@@ -45,19 +44,26 @@ export default function MapView({ styleUrl }: MapViewProps) {
   const centerRef = useRef(center);
   centerRef.current = center;
 
-  // Пытаемся запустить основную карту; если за 8 секунд она не загрузилась —
-  // переключаемся на запасную, чтобы пользователь никогда не видел пустоту.
+  // Карта создаётся ОДИН РАЗ (зависимость только styleUrl).
+  // ВАЖНО: смена mode не должна перезапускать этот эффект — раньше из-за
+  // этого карта уничтожалась сразу после успешной загрузки.
   useEffect(() => {
-    if (!styleUrl || mode !== "checking") return;
+    if (!styleUrl) return;
 
     let settled = false;
     let map: MapLibreMap | null = null;
 
-    const finishWebgl = () => {
-      if (!settled) {
-        settled = true;
-        setMode("webgl");
+    const switchToFallback = (message?: string) => {
+      if (settled) return;
+      settled = true;
+      if (map) {
+        map.remove();
+        map = null;
       }
+      mapRef.current = null;
+      markerRef.current = null;
+      if (message) setMapError(message);
+      setMode("fallback");
     };
 
     try {
@@ -71,47 +77,34 @@ export default function MapView({ styleUrl }: MapViewProps) {
 
       map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
       map.addControl(new maplibregl.AttributionControl({ compact: true }));
+      mapRef.current = map;
 
       map.on("load", () => {
-        finishWebgl();
-      });
-
-      map.on("error", (event) => {
-        // Ошибки отдельных тайлов не должны убивать карту; реагируем только
-        // пока карта ещё считается «загружающейся».
         if (!settled) {
-          const message =
-            (event as unknown as { error?: { message?: string } }).error?.message ?? "";
-          if (message) {
-            settled = true;
-            setMapError(message);
-            setMode("fallback");
-          }
+          settled = true;
+          setMode("webgl");
         }
       });
 
-      mapRef.current = map;
+      map.on("error", (event) => {
+        const message =
+          (event as unknown as { error?: { message?: string } }).error?.message ?? "";
+        // Пока карта грузится, серьёзная ошибка (стиль/ключ/WebGL) — повод
+        // уйти на запасную карту. Ошибки отдельных тайлов после загрузки
+        // игнорируем, чтобы не ломать работающую карту.
+        if (!settled && message) switchToFallback(message);
+      });
+
+      const timeout = setTimeout(() => switchToFallback(), 8000);
+      return () => {
+        clearTimeout(timeout);
+        if (map) map.remove();
+      };
     } catch (error) {
-      settled = true;
-      setMapError(String(error).slice(0, 160));
-      setMode("fallback");
+      switchToFallback(String(error).slice(0, 160));
       return () => {};
     }
-
-    const timeout = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        setMode("fallback");
-      }
-    }, 8000);
-
-    return () => {
-      clearTimeout(timeout);
-      map?.remove();
-      mapRef.current = null;
-      markerRef.current = null;
-    };
-  }, [styleUrl, mode]);
+  }, [styleUrl]);
 
   /** Общая логика геолокации для обоих вариантов карты. */
   const locateUser = useCallback(() => {
@@ -124,50 +117,66 @@ export default function MapView({ styleUrl }: MapViewProps) {
     }
 
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocating(false);
-        const { longitude, latitude } = position.coords;
-        setCity(null);
-        setCenter({ lat: latitude, lng: longitude });
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocating(false);
+          const { longitude, latitude } = position.coords;
+          setCity(null);
+          setCenter({ lat: latitude, lng: longitude });
 
-        // Основная карта: перелёт и своя точка.
-        const map = mapRef.current;
-        if (map && mode === "webgl") {
-          map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1600 });
+          // Основная карта: перелёт и своя точка.
+          const map = mapRef.current;
+          if (map) {
+            map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1600 });
 
-          if (markerRef.current) markerRef.current.remove();
-          const element = document.createElement("div");
-          element.className = "luma-user-dot";
-          markerRef.current = new maplibregl.Marker({ element })
-            .setLngLat([longitude, latitude])
-            .addTo(map);
-        }
+            if (markerRef.current) markerRef.current.remove();
+            const element = document.createElement("div");
+            element.className = "luma-user-dot";
+            markerRef.current = new maplibregl.Marker({ element })
+              .setLngLat([longitude, latitude])
+              .addTo(map);
+          }
 
-        // Город по координатам (обратное геокодирование MapTiler).
-        const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-        if (key) {
-          fetch(
-            `https://api.maptiler.com/geocoding/${longitude},${latitude}.json?key=${encodeURIComponent(key)}`,
-          )
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data: { features?: Array<{ text?: string }> } | null) => {
-              setCity(data?.features?.[0]?.text ?? null);
-            })
-            .catch(() => setCity(null));
-        }
-      },
-      (error) => {
-        setLocating(false);
-        if (error.code === error.PERMISSION_DENIED) {
-          setGeoError("Доступ к местоположению закрыт. Карта работает и без него — включить можно в настройках браузера.");
-        } else {
-          setGeoError("Не удалось определить местоположение. Попробуйте ещё раз.");
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-    );
-  }, [mode]);
+          // Запасная карта OSM (iframe) тоже должна переехать к пользователю:
+          // это делает setCenter выше — iframe перерисуется по новому центру.
+
+          // Город по координатам (обратное геокодирование MapTiler).
+          const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+          if (key) {
+            fetch(
+              `https://api.maptiler.com/geocoding/${longitude},${latitude}.json?key=${encodeURIComponent(key)}`,
+            )
+              .then((res) => (res.ok ? res.json() : null))
+              .then((data: { features?: Array<{ text?: string }> } | null) => {
+                setCity(data?.features?.[0]?.text ?? null);
+              })
+              .catch(() => setCity(null));
+          }
+        },
+        (error) => {
+          setLocating(false);
+          if (error.code === error.PERMISSION_DENIED) {
+            setGeoError(
+              "Доступ к местоположению закрыт. Карта работает и без него. Чтобы разрешить: настройки браузера → разрешения → местоположение → для этого сайта включить.",
+            );
+          } else if (error.code === error.POSITION_UNAVAILABLE || error.code === error.TIMEOUT) {
+            setGeoError("Не удалось определить координаты (нет сигнала GPS). Попробуйте ещё раз на открытом месте.");
+          } else {
+            setGeoError("Не удалось определить местоположение. Попробуйте ещё раз.");
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+      );
+    } catch (error) {
+      // Некоторые браузеры/встроенные окна бросают исключение синхронно
+      // (нет HTTPS, запрет политикой iframe и т.п.) — не оставляем кнопку в «вечной загрузке».
+      setLocating(false);
+      setGeoError(
+        "Браузер заблокировал запрос местоположения. Откройте сайт напрямую в Chrome/Safari (не во встроенном окне мессенджера) и убедитесь, что в браузере разрешено местоположение.",
+      );
+    }
+  }, []);
 
   /** Запасная карта OpenStreetMap: рамка вокруг центра. */
   const osmEmbedUrl = (() => {
@@ -195,8 +204,18 @@ export default function MapView({ styleUrl }: MapViewProps) {
 
   return (
     <main className="relative h-screen w-full overflow-hidden">
-      {/* Слой карты */}
+      {/* Слой карты (существует, пока работаем с векторной картой) */}
       {mode !== "fallback" && <div ref={containerRef} className="absolute inset-0" />}
+
+      {/* Индикатор загрузки векторной карты */}
+      {mode === "checking" && (
+        <div className="absolute inset-0 z-10 grid place-items-center bg-[#f5f8f4]">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-tide border-t-transparent" />
+            <p className="text-sm font-bold text-slate-500">Загружаем карту…</p>
+          </div>
+        </div>
+      )}
 
       {/* Запасная карта OSM (работает даже без WebGL) */}
       {mode === "fallback" && (
