@@ -6,6 +6,6 @@ type AuthPageProps = {
 
 export default async function AuthPage({ searchParams }: AuthPageProps) {
   const params = await searchParams;
-  const initialMode = params.mode === "signup" ? "signup" : "signin";
+  const initialMode = params.mode === "reset" ? "reset" : params.mode === "signup" ? "signup" : "signin";
   return <AuthForm initialMode={initialMode} message={params.message} />;
 }
