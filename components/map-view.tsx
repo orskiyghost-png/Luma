@@ -18,10 +18,10 @@ type MapViewProps = {
 };
 
 const CATEGORY_ICON: Record<string, string> = {
-  dtp: "🚗",
-  police: "🚔",
-  hangout: "🎉",
-  other: "📌",
+  dtp: "◆",
+  police: "✚",
+  hangout: "✦",
+  other: "•",
 };
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -41,7 +41,7 @@ function buildMarkerEl(category: string): HTMLDivElement {
     "display:grid;place-items:center;font-size:18px;cursor:pointer",
     "transform:rotate(-45deg);transition:transform .2s",
   ].join(";");
-    el.innerHTML = `<span aria-hidden="true" style="transform:rotate(45deg);font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;
+    el.innerHTML = `<span aria-hidden="true" style="transform:rotate(45deg);font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;
   return el;
 }
 
@@ -279,6 +279,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
   // ====== Клик по карте в режиме размещения ======
   const handleFallbackMapClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    setPlacing(true);
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -545,7 +546,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* Выбор точки на запасной карте: overlay получает касание поверх iframe
           и переводит его в координаты видимой области карты. */}
-      {placing && mode === "fallback" && pendingLat == null && (
+      {mode === "fallback" && pendingLat == null && (
         <div
           role="button"
           tabIndex={0}
