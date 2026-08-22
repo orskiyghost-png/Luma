@@ -4,14 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-/**
- * Страница возврата после Google.
- *
- * Работает детерминированно и не зависит от внутреннего flowType библиотеки:
- * 1. implicit-поток (основной): Supabase возвращает сессию в хэше адреса
- *    (#access_token=...&refresh_token=...) — мы сами вызываем setSession.
- * 2. PKCE (запасной): приходит ?code=... — обмениваем его на сессию.
- */
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<string | null>(null);
@@ -19,30 +11,23 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
-
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const query = new URLSearchParams(window.location.search);
 
     function fail(message: string, detail?: string) {
-      if (!cancelled) {
-        setError(message);
-        if (detail) setDetails(detail);
-      }
+      if (cancelled) return;
+      setError(message);
+      setDetails(detail ?? null);
     }
 
     async function completeLogin() {
-      // 0) Если Supabase вернул ошибку вместо токена — показываем её текст.
-      const returnedError =
-        hash.get("error_description") ??
-        hash.get("error") ??
-        query.get("error_description") ??
-        query.get("error");
+      const returnedError = hash.get("error_description") ?? hash.get("error") ?? query.get("error_description") ?? query.get("error");
       if (returnedError) {
-        fail(`Google вернул ошибку: ${returnedError}`);
+        fail("Ссылка для входа недействительна или устарела.", "Supabase сообщил об ошибке возврата. Запросите новую попытку входа.");
+        console.warn("[auth:callback] provider returned an error", { hasDescription: Boolean(returnedError) });
         return;
       }
 
-      // Уже вошли (например, сессия сохранилась ранее)?
       try {
         const { data } = await supabase.auth.getSession();
         if (data.session) {
@@ -50,21 +35,18 @@ export default function AuthCallbackPage() {
           window.location.replace("/profile");
           return;
         }
-      } catch {
-        // игнорируем — просто продолжаем установку сессии.
+      } catch (sessionError) {
+        console.warn("[auth:callback] getSession failed", { message: sessionError instanceof Error ? sessionError.message : "unknown" });
       }
 
-      // 1) Основной путь: implicit-поток, сессия в хэше.
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
       if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
+        const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
         if (cancelled) return;
-        if (error) {
-          fail(`Supabase не принял сессию: ${error.message}`);
+        if (sessionError) {
+          console.warn("[auth:callback] setSession failed", { message: sessionError.message, status: sessionError.status ?? null });
+          fail("Ссылка для входа недействительна или устарела.", "Сессия не была принята. Начните вход заново, чтобы получить новую ссылку.");
           return;
         }
         window.history.replaceState(null, "", "/auth/callback");
@@ -72,13 +54,13 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      // 2) Запасной путь: PKCE (?code=...).
       const code = query.get("code");
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        const { error: codeError } = await supabase.auth.exchangeCodeForSession(code);
         if (cancelled) return;
-        if (error) {
-          fail(`Не удалось завершить вход по коду: ${error.message}`);
+        if (codeError) {
+          console.warn("[auth:callback] exchangeCodeForSession failed", { message: codeError.message, status: codeError.status ?? null });
+          fail("Ссылка для входа недействительна или устарела.", "Код уже использован, истёк или не совпадает с адресом возврата.");
           return;
         }
         window.history.replaceState(null, "", "/auth/callback");
@@ -86,38 +68,29 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const paramNames = [...new Set([...hash.keys(), ...query.keys()])];
-      fail(
-        "Сессия не пришла от Supabase. Попробуйте войти ещё раз.",
-        paramNames.length > 0
-          ? `Параметры возврата: ${paramNames.join(", ")}`
-          : "Параметры возврата отсутствуют.",
-      );
+      const parameterNames = [...new Set([...hash.keys(), ...query.keys()])];
+      fail("Сессия не пришла от Supabase. Начните вход заново.", parameterNames.length ? `Получены параметры: ${parameterNames.join(", ")}` : "Параметры возврата отсутствуют.");
     }
 
     void completeLogin();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   return (
-    <main className="auth-shell">
+    <main className="auth-shell page-shell">
+      <div className="aurora aurora-one" aria-hidden="true" />
       <div className="form-card text-center">
-        {error ? (
-          <>
-            <h1 className="text-2xl font-black tracking-tight">Вход не завершён</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{error}</p>
-            {details && <p className="mt-2 break-words text-xs leading-5 text-slate-400">{details}</p>}
-            <Link href="/auth" className="primary-button mt-6 inline-flex">Вернуться ко входу</Link>
-          </>
-        ) : (
-          <>
-            <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-4 border-tide border-t-transparent" />
-            <h1 className="text-2xl font-black tracking-tight">Завершаем вход…</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-500">Секунду, переносим вас в профиль.</p>
-          </>
-        )}
+        {error ? <>
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[rgba(255,155,155,.3)] bg-[rgba(255,155,155,.1)] text-xl text-[var(--danger)]" aria-hidden="true">!</div>
+          <h1 className="mt-5 text-2xl font-black tracking-tight">Вход не завершён</h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">{error}</p>
+          {details && <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">{details}</p>}
+          <div className="mt-6 grid gap-3"><Link href="/auth" className="primary-button">Начать вход заново</Link><Link href="/" className="secondary-button">Вернуться на главную</Link></div>
+        </> : <>
+          <div className="spinner spinner-light mx-auto mb-5 h-10 w-10" aria-hidden="true" />
+          <h1 className="text-2xl font-black tracking-tight">Завершаем вход…</h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">Секунду, переносим тебя в профиль.</p>
+        </>}
       </div>
     </main>
   );
