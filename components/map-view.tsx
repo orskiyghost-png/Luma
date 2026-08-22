@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, MapMouseEvent, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addMarker, deleteMarker, getActiveMarkers, type MarkerRow } from "@/app/map/actions";
+import { addMarker, deleteMarker, getActiveMarkers, saveCurrentLocation, type MarkerRow } from "@/app/map/actions";
 import { CATEGORIES } from "@/lib/markers";
 
 type MapViewProps = {
@@ -55,6 +55,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [locating, setLocating] = useState(false);
   const [city, setCity] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [locationSaved, setLocationSaved] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   const [center, setCenter] = useState({ lat: 55.7558, lng: 37.6173 });
@@ -67,6 +68,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [pendingLng, setPendingLng] = useState<number | null>(null);
   const [pendingCategory, setPendingCategory] = useState("other");
   const [pendingText, setPendingText] = useState("");
+  const [pendingScreen, setPendingScreen] = useState<{ x: number; y: number } | null>(null);
   const [sending, setSending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -76,6 +78,39 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [markers, setMarkers] = useState<MarkerRow[]>(initialMarkers);
   const markersRef = useRef(markers);
   markersRef.current = markers;
+
+  // Метки загружаются после первого показа карты, а не блокируют её открытие.
+  useEffect(() => {
+    let active = true;
+    void getActiveMarkers()
+      .then((loaded) => {
+        if (active) setMarkers(loaded);
+      })
+      .catch(() => {
+        // Пустая карта остаётся рабочей даже при временной ошибке сети.
+      });
+    return () => { active = false; };
+  }, []);
+
+  const osmBounds = {
+    west: center.lng - 0.05,
+    east: center.lng + 0.05,
+    south: center.lat - 0.03,
+    north: center.lat + 0.03,
+  };
+
+  // Последняя разрешённая точка остаётся на этом устройстве между открытиями
+  // страницы. Это не публикация позиции и не заменяет явное разрешение.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("luma:last-location") ?? "null") as { lat?: number; lng?: number } | null;
+      if (saved && typeof saved.lat === "number" && typeof saved.lng === "number") {
+        setCenter({ lat: saved.lat, lng: saved.lng });
+      }
+    } catch {
+      // Повреждённое локальное значение не должно ломать карту.
+    }
+  }, []);
 
   // ====== Карта (один раз) ======
   useEffect(() => {
@@ -95,10 +130,19 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
     };
 
     try {
+      let startCenter = centerRef.current;
+      try {
+        const saved = JSON.parse(localStorage.getItem("luma:last-location") ?? "null") as { lat?: number; lng?: number } | null;
+        if (saved && typeof saved.lat === "number" && typeof saved.lng === "number") {
+          startCenter = { lat: saved.lat, lng: saved.lng };
+        }
+      } catch {
+        // Используем город по умолчанию, если приватный браузер запретил storage.
+      }
       map = new maplibregl.Map({
         container: containerRef.current!,
         style: styleUrl,
-        center: [centerRef.current.lng, centerRef.current.lat],
+        center: [startCenter.lng, startCenter.lat],
         zoom: 9,
         attributionControl: false,
       });
@@ -116,7 +160,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         if (!settled && msg) switchToFallback(msg);
       });
 
-      const timeout = setTimeout(() => switchToFallback(), 8000);
+      const timeout = setTimeout(() => switchToFallback(), 3000);
       return () => {
         clearTimeout(timeout);
         if (map) { map.remove(); }
@@ -169,7 +213,16 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           setLocating(false);
           const { longitude, latitude } = pos.coords;
           setCity(null);
+          setGeoError(null);
+          setLocationSaved(false);
           setCenter({ lat: latitude, lng: longitude });
+          try { localStorage.setItem("luma:last-location", JSON.stringify({ lat: latitude, lng: longitude })); } catch {
+            // Локальное хранилище может быть запрещено приватным браузером.
+          }
+          void saveCurrentLocation(latitude, longitude).then((result) => {
+            if ("error" in result) setGeoError(result.error);
+            else setLocationSaved(true);
+          }).catch(() => setGeoError("Место определено, но сохранить его не удалось."));
           const map = mapRef.current;
           if (map) {
             map.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1600 });
@@ -206,11 +259,26 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   }, []);
 
   // ====== Клик по карте в режиме размещения ======
+  const handleFallbackMapClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const xRatio = Math.max(0, Math.min(1, x / rect.width));
+    const yRatio = Math.max(0, Math.min(1, y / rect.height));
+    setPendingScreen({ x, y });
+    setPendingLng(osmBounds.west + xRatio * (osmBounds.east - osmBounds.west));
+    setPendingLat(osmBounds.north - yRatio * (osmBounds.north - osmBounds.south));
+    setPendingCategory("other");
+    setPendingText("");
+    setActionError(null);
+  }, [osmBounds.east, osmBounds.north, osmBounds.south, osmBounds.west]);
+
   const handleMapClick = useCallback(
     (e: MapMouseEvent) => {
       if (!placing) return;
       setPendingLat(e.lngLat.lat);
       setPendingLng(e.lngLat.lng);
+      setPendingScreen(null);
       setPendingCategory("other");
       setPendingText("");
       setActionError(null);
@@ -240,6 +308,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
     setPlacing(false);
     setPendingLat(null);
     setPendingLng(null);
+    setPendingScreen(null);
     try { setMarkers(await getActiveMarkers()); } catch { /* ignore */ }
   }
 
@@ -252,12 +321,11 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   }
 
   // ====== OSM fallback ======
-  const osmEmbedUrl = (() => {
-    const dLat = 0.03;
-    const dLng = 0.05;
-    const { lat, lng } = center;
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`)}&layer=mapnik&marker=${lat},${lng}`;
-  })();
+  const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${osmBounds.west},${osmBounds.south},${osmBounds.east},${osmBounds.north}`)}&layer=mapnik&marker=${center.lat},${center.lng}`;
+  const fallbackPointStyle = (lat: number, lng: number) => ({
+    left: `${((lng - osmBounds.west) / (osmBounds.east - osmBounds.west)) * 100}%`,
+    top: `${((osmBounds.north - lat) / (osmBounds.north - osmBounds.south)) * 100}%`,
+  });
 
   // ====== Рендер ======
   if (!styleUrl) {
@@ -292,9 +360,23 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       {mode === "fallback" && (
         <>
           <iframe title="Карта" src={osmEmbedUrl} className="absolute inset-0 h-full w-full border-0" />
+          <div className="pointer-events-none absolute inset-0 z-[12]">
+            {markers.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                aria-label={`Метка: ${row.text}`}
+                onClick={(event) => { event.stopPropagation(); setPopupMarker(row); }}
+                className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full rounded-full border-2 border-white px-2 py-1 text-base shadow-lg"
+                style={{ ...fallbackPointStyle(row.lat, row.lng), backgroundColor: CATEGORY_COLOR[row.category] ?? "#778ca3" }}
+              >
+                {CATEGORY_ICON[row.category] ?? "📍"}
+              </button>
+            ))}
+          </div>
           {mapError && (
             <div className="absolute left-1/2 top-20 z-10 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-xs leading-5 text-slate-500 shadow-xl">
-              Быстрая карта недоступна. Показана упрощённая версия — метки не отображаются.
+              Быстрая карта недоступна. Показана упрощённая версия; выбранные метки остаются на экране.
               <button type="button" onClick={() => setMapError(null)} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Понятно</button>
             </div>
           )}
@@ -327,13 +409,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
             setActionError(null);
             setPendingLat(null);
             setPendingLng(null);
-            // В запасном режиме карта — iframe, его нельзя обработать кликом
-            // из приложения. Берём текущий центр карты; после геолокации это
-            // будет точка пользователя.
-            if (nextPlacing && mode === "fallback") {
-              setPendingLat(centerRef.current.lat);
-              setPendingLng(centerRef.current.lng);
-            }
+            setPendingScreen(null);
           }}
           className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
             placing ? "bg-coral text-white" : "bg-ink text-white hover:bg-ink/90"
@@ -343,11 +419,40 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         </button>
       </div>
 
-      {/* Подсказка при размещении */}
+      {/* Выбор точки на запасной карте: overlay получает касание поверх iframe
+          и переводит его в координаты видимой области карты. */}
+      {placing && mode === "fallback" && pendingLat == null && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Выбрать точку для метки"
+          onClick={handleFallbackMapClick}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              const rect = event.currentTarget.getBoundingClientRect();
+              const synthetic = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+              setPendingScreen({ x: rect.width / 2, y: rect.height / 2 });
+              setPendingLng(osmBounds.west + (synthetic.clientX - rect.left) / rect.width * (osmBounds.east - osmBounds.west));
+              setPendingLat(osmBounds.north - (synthetic.clientY - rect.top) / rect.height * (osmBounds.north - osmBounds.south));
+            }
+          }}
+          className="absolute inset-0 z-[15] cursor-crosshair"
+        />
+      )}
+
       {placing && pendingLat == null && (
-        <div className="absolute bottom-28 left-1/2 z-20 w-[min(90vw,24rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-sm font-bold text-white shadow-xl text-center">
-          Нажмите на карту, чтобы поставить метку
+        <div className="absolute bottom-28 left-1/2 z-20 w-[min(90vw,24rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-center text-sm font-bold text-white shadow-xl">
+          Нажмите на нужное место карты
         </div>
+      )}
+
+      {pendingScreen && mode === "fallback" && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute z-[16] h-8 w-8 -translate-x-1/2 -translate-y-full rounded-full border-4 border-white bg-coral shadow-[0_3px_12px_rgba(0,0,0,.3)]"
+          style={{ left: pendingScreen.x, top: pendingScreen.y }}
+        />
       )}
 
       {placing && mode === "fallback" && pendingLat != null && (
@@ -437,6 +542,11 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       )}
 
       {/* Ошибка геолокации */}
+      {locationSaved && !geoError && (
+        <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-bold text-emerald-800 shadow-xl backdrop-blur">
+          Местоположение сохранено только для вашего аккаунта
+        </div>
+      )}
       {geoError && (
         <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-700 shadow-xl backdrop-blur">
           {geoError}

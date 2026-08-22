@@ -17,6 +17,30 @@ export type MarkerRow = {
 
 export type MarkerActionResult = { error: string } | { ok: true };
 
+export async function saveCurrentLocation(lat: number, lng: number): Promise<MarkerActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Нужно войти в аккаунт." };
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { error: "Получены некорректные координаты." };
+  }
+
+  // Координаты сохраняются только в личной строке пользователя.
+  // sharing_enabled=false по умолчанию, поэтому другим они не видны.
+  const { error } = await supabase.from("live_locations").upsert({
+    user_id: user.id,
+    lat,
+    lng,
+    sharing_enabled: false,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id" });
+
+  if (error) return { error: "Место определено, но сохранить его не удалось." };
+  return { ok: true };
+}
+
 export async function addMarker(
   lat: number,
   lng: number,

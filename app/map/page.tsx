@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import MapView from "@/components/map-view";
-import { getActiveMarkers, type MarkerRow } from "./actions";
+import type { MarkerRow } from "./actions";
 
 /**
  * Главный экран приложения — карта на весь экран с метками.
@@ -20,13 +20,9 @@ export default async function MapPage() {
     ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${encodeURIComponent(key)}`
     : null;
 
-  // Начальные метки — загружаются на сервере для быстрой отрисовки.
-  let markers: MarkerRow[] = [];
-  try {
-    markers = await getActiveMarkers();
-  } catch {
-    // Без меток карта всё равно работает.
-  }
+  // Запрос меток не блокирует открытие карты: MapView подгрузит их после
+  // первого рендера, поэтому медленный Supabase не задерживает экран.
+  const markers: MarkerRow[] = [];
 
   return (
     <MapView
