@@ -861,3 +861,15 @@ service_role, MapTiler и Supabase Access Token добавлены и подхв
 Осталось / известные проблемы: письма не отправлялись и не тестировались по прямому ограничению владельца. Кастомный SMTP, реальная доставка recovery/signup-писем, allow-list redirect URL в Supabase и значения переменных окружения Vercel требуют доступа владельца и не могут быть проверены локально без расходования лимита писем.
 
 Нужно от заказчика: если понадобится production email-flow, настроить SMTP и redirect URL в Supabase Auth, а `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` и остальные значения из env.example — отдельно для Development/Preview/Production в Vercel. Секреты в чат не присылать.
+
+## 2026-08-22 — Preview/Auth fix: Supabase guard, Google OAuth и стеклянные всплывающие окна
+
+Сделано: добавлена безопасная проверка конфигурации Supabase, чтобы публичные страницы и серверные действия не падали с `Application error`, если Preview не получил переменные окружения. Убрано устаревшее упоминание Freebuff. Google-вход переведён с вручную собранного URL на поддерживаемый `signInWithOAuth`, callback сохраняет обработку implicit и PKCE. Ошибки конфигурации теперь объясняются пользователю без раскрытия секретов.
+
+Всплывающие панели карты, жалоб, cookie-согласия и чата переведены с непрозрачных белых/slate-поверхностей на общие полупрозрачные glass-токены, с blur, границами, мягкими тенями и безопасной зоной снизу на мобильных.
+
+Как проверить: открыть `/` и `/auth` в окружении без Supabase — теперь должна показываться страница, а не серверное падение; нажать Google — должна появиться понятная подсказка о настройке, если переменные отсутствуют; открыть карту и проверить модалки/уведомления. `pnpm typecheck` и `pnpm build` проходят.
+
+Осталось / известные проблемы: без значений `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY` в Vercel реальная регистрация и Google OAuth не могут работать — это внешняя настройка, а не кодовая. Отправка регистрационных/восстановительных писем не выполнялась и лимит Supabase не расходовали.
+
+Нужно от заказчика: в Vercel добавить эти две публичные переменные для Preview и Production из Supabase → Settings → API; включить Google в Supabase → Authentication → Providers и добавить callback `https://luma-premium-preview.vercel.app/auth/callback` в Supabase → Authentication → URL Configuration, а в Google Console указать Supabase callback URL провайдера. Секреты в чат не присылать.

@@ -27,12 +27,12 @@ export function ReportDialog({ targetType, targetId, onClose }: ReportDialogProp
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-5 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(5,15,23,.5)] p-5 backdrop-blur-sm" onClick={onClose}>
       <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
         {done ? (
           <>
             <h3 className="text-xl font-black tracking-tight text-ink">Жалоба отправлена</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
               Спасибо. Модераторы рассмотрят обращение.
             </p>
             <button type="button" onClick={onClose} className="primary-button mt-5 w-full">
@@ -42,7 +42,7 @@ export function ReportDialog({ targetType, targetId, onClose }: ReportDialogProp
         ) : (
           <>
             <h3 className="text-xl font-black tracking-tight text-ink">Пожаловаться</h3>
-            <p className="mt-1 mb-4 text-sm leading-6 text-slate-500">
+            <p className="mt-1 mb-4 text-sm leading-6 text-[var(--text-muted)]">
               Выберите причину. Модераторы увидят обращение в очереди.
             </p>
             <div className="grid gap-2">
@@ -54,7 +54,7 @@ export function ReportDialog({ targetType, targetId, onClose }: ReportDialogProp
                   className={`rounded-xl border px-3 py-2 text-left text-sm font-bold transition ${
                     reason === r.code
                       ? "border-tide bg-tide/10 text-ink"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      : "border-[var(--line)] bg-[var(--surface)] text-[var(--text-soft)] hover:border-[var(--line-strong)]"
                   }`}
                 >
                   {r.label}
@@ -67,7 +67,7 @@ export function ReportDialog({ targetType, targetId, onClose }: ReportDialogProp
               placeholder="Подробности (необязательно)"
               rows={2}
               maxLength={1800}
-              className="mt-3 w-full rounded-2xl border-2 border-slate-200 bg-slate-50 p-3 text-sm text-ink placeholder:text-slate-400 focus:border-tide focus:outline-none"
+              className="mt-3 w-full rounded-2xl border-2 border-[var(--line)] bg-[var(--surface-soft)] p-3 text-sm text-ink placeholder:text-[var(--text-muted)] focus:border-tide focus:outline-none"
             />
             {error && <p className="mt-3 text-sm font-bold text-coral">{error}</p>}
             <div className="mt-4 flex gap-3">

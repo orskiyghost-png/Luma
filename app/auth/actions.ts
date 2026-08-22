@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { normalizeSupabaseUrl } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export type AuthField = "email" | "password" | "dateOfBirth" | "displayName" | "form";
 export type AuthState = { error: string | null; fieldErrors?: Partial<Record<AuthField, string>> };
@@ -129,6 +130,8 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
   else if (getAge(dateOfBirth) < 16) fieldErrors.dateOfBirth = "Регистрация доступна только с 16 лет.";
   if (Object.keys(fieldErrors).length) return { error: null, fieldErrors };
 
+  if (!isSupabaseConfigured()) return { error: "В этом окружении не настроен Supabase. Добавьте URL проекта и публичный ключ в Vercel." };
+
   const supabase = await createClient();
   const devResult = await devAdminCreateUser(email, password, { date_of_birth: dateOfBirth, display_name: displayName });
   if (devResult === "ok" || devResult === "exists") {
@@ -155,6 +158,8 @@ export async function signIn(_previous: AuthState, formData: FormData): Promise<
   if (!email.includes("@")) fieldErrors.email = "Введите корректный email.";
   if (!password) fieldErrors.password = "Введите пароль.";
   if (Object.keys(fieldErrors).length) return { error: null, fieldErrors };
+
+  if (!isSupabaseConfigured()) return { error: "В этом окружении не настроен Supabase. Добавьте URL проекта и публичный ключ в Vercel." };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });

@@ -447,7 +447,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       <main className="grid min-h-screen place-items-center bg-[#f5f8f4] px-5">
         <div className="form-card max-w-md text-center">
           <h1 className="text-2xl font-black tracking-tight">Карта скоро появится</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
             Не задан ключ карт (NEXT_PUBLIC_MAPTILER_KEY). Добавьте его в переменные окружения.
           </p>
           <Link href="/profile" className="secondary-button mt-6 inline-flex">В профиль</Link>
@@ -465,7 +465,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         <div className="absolute inset-0 z-10 grid place-items-center bg-[#f5f8f4]">
           <div className="text-center">
             <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-tide border-t-transparent" />
-            <p className="text-sm font-bold text-slate-500">Загружаем карту…</p>
+            <p className="text-sm font-bold text-[var(--text-muted)]">Загружаем карту…</p>
           </div>
         </div>
       )}
@@ -489,9 +489,9 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
             ))}
           </div>
           {mapError && (
-            <div className="absolute left-1/2 top-20 z-10 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-xs leading-5 text-slate-500 shadow-xl">
+            <div className="absolute left-1/2 top-20 z-10 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-[var(--surface)] p-4 text-xs leading-5 text-[var(--text-muted)] shadow-xl">
               Быстрая карта недоступна. Показана упрощённая версия; выбранные метки остаются на экране.
-              <button type="button" onClick={() => setMapError(null)} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Понятно</button>
+              <button type="button" onClick={() => setMapError(null)} className="mt-2 block text-xs font-black uppercase tracking-wider text-[var(--text-muted)] hover:text-ink">Понятно</button>
             </div>
           )}
         </>
@@ -499,14 +499,14 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* Шапка */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4">
-        <Link href="/" className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-lg backdrop-blur transition hover:bg-white">
+        <Link href="/" className="pointer-events-auto flex items-center gap-2 rounded-2xl bg-[var(--surface)] px-4 py-2.5 shadow-lg backdrop-blur transition hover:bg-[var(--surface)]">
           <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink text-sm font-black text-white">L</span>
           <span className="text-base font-black tracking-tight text-ink">Luma</span>
         </Link>
         <div className="pointer-events-auto flex items-center gap-2">
-          {city && <span className="hidden rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur sm:block">⌖ {city}</span>}
-          <Link href="/messages" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Сообщения</Link>
-          <Link href="/profile" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Профиль</Link>
+          {city && <span className="hidden rounded-2xl bg-[var(--surface)] px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur sm:block">⌖ {city}</span>}
+          <Link href="/messages" className="rounded-2xl bg-[var(--surface)] px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-[var(--surface)]">Сообщения</Link>
+          <Link href="/profile" className="rounded-2xl bg-[var(--surface)] px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-[var(--surface)]">Профиль</Link>
         </div>
       </header>
 
@@ -537,7 +537,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           onClick={handleToggleNearby}
           disabled={nearbyLoading}
           className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition disabled:opacity-70 sm:flex-none sm:px-4 ${
-            showNearby ? "bg-tide text-ink" : "bg-white/90 text-ink hover:bg-white"
+            showNearby ? "bg-tide text-ink" : "bg-[var(--surface)] text-ink hover:bg-[var(--surface)]"
           }`}
         >
           {nearbyLoading ? "Ищем…" : showNearby ? "◉ Люди рядом ✓" : "◉ Люди рядом"}
@@ -548,7 +548,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           aria-pressed={showMarkers}
           aria-label={showMarkers ? "Скрыть метки" : "Показать метки"}
           className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
-            showMarkers ? "bg-white/90 text-ink hover:bg-white" : "bg-ink text-white hover:bg-ink/90"
+            showMarkers ? "bg-[var(--surface)] text-ink hover:bg-[var(--surface)]" : "bg-ink text-white hover:bg-ink/90"
           }`}
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 inline-block h-4 w-4 align-[-0.15em]"><path d="M12 3l7 7-7 7-7-7 7-7Z"/><path d="M5 20h14"/></svg>
@@ -600,7 +600,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* Форма создания метки */}
       {placing && pendingLat != null && pendingLng != null && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-[2rem] bg-white px-5 pb-8 pt-6 shadow-[0_-8px_40px_rgba(0,0,0,.15)]">
+        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-[2rem] bg-[var(--surface)] px-5 pb-8 pt-6 shadow-[0_-8px_40px_rgba(0,0,0,.15)]">
           <h3 className="mb-4 text-lg font-black tracking-tight text-ink">Новая метка</h3>
           <div className="mb-4 flex flex-wrap gap-2">
             {CATEGORIES.map((cat) => (
@@ -611,7 +611,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                   pendingCategory === cat.id
                     ? "bg-ink text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    : "bg-[var(--surface-soft)] text-[var(--text-soft)] hover:bg-slate-200"
                 }`}
               >
                 {cat.label}
@@ -624,7 +624,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
             placeholder="Что здесь происходит?"
             maxLength={280}
             rows={2}
-            className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 p-4 text-sm font-medium text-ink placeholder:text-slate-400 focus:border-tide focus:outline-none"
+            className="w-full rounded-2xl border-2 border-[var(--line)] bg-[var(--surface-soft)] p-4 text-sm font-medium text-ink placeholder:text-[var(--text-muted)] focus:border-tide focus:outline-none"
           />
           {actionError && <p className="mt-3 text-sm font-bold text-coral">{actionError}</p>}
           <div className="mt-4 flex gap-3">
@@ -633,7 +633,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
               {sending ? "Публикуем…" : "Опубликовать"}
             </button>
           </div>
-          <p className="mt-3 text-xs leading-5 text-slate-400">
+          <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
             Метка исчезнет через {CATEGORIES.find((c) => c.id === pendingCategory)?.ttlHours ?? 12} ч.
           </p>
         </div>
@@ -641,12 +641,12 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* Попап метки */}
       {popupMarker && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-ink/30 p-5 backdrop-blur-sm" onClick={() => setPopupMarker(null)}>
+        <div className="absolute inset-0 z-30 grid place-items-center bg-[rgba(5,15,23,.42)] p-5 backdrop-blur-sm" onClick={() => setPopupMarker(null)}>
           <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-2xl">{CATEGORY_ICON[popupMarker.category] ?? "⌖"}</div>
             <p className="text-sm font-bold text-ink">{CATEGORIES.find((c) => c.id === popupMarker.category)?.label ?? popupMarker.category}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-700">{popupMarker.text || "Без текста"}</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-2 text-sm leading-6 text-[var(--text)]">{popupMarker.text || "Без текста"}</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               {new Date(popupMarker.created_at).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
               {" · "}
               {(() => {
@@ -669,7 +669,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                     className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-bold transition disabled:opacity-60 ${
                       active
                         ? "border-tide bg-tide/15 text-ink"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                        : "border-[var(--line)] bg-[var(--surface)] text-[var(--text-soft)] hover:border-[var(--line-strong)]"
                     }`}
                   >
                     <span>{emoji}</span>
@@ -692,19 +692,19 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                   {contactBusy ? "Открываем…" : "✉ Написать автору"}
                 </button>
                 {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
-                <p className="mt-2 text-xs leading-5 text-slate-400">
+                <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
                   Автор получит приглашение к переписке и сможет его принять или отклонить.
                 </p>
                 <button
                   type="button"
                   onClick={() => setReportMarkerId(popupMarker.id)}
-                  className="mt-3 text-sm font-bold text-slate-400 hover:text-coral"
+                  className="mt-3 text-sm font-bold text-[var(--text-muted)] hover:text-coral"
                 >
                   ⚑ Пожаловаться на метку
                 </button>
               </div>
             )}
-            <button type="button" onClick={() => setPopupMarker(null)} className="mt-3 block w-full text-center text-xs font-bold text-slate-400 hover:text-ink">Закрыть</button>
+            <button type="button" onClick={() => setPopupMarker(null)} className="mt-3 block w-full text-center text-xs font-bold text-[var(--text-muted)] hover:text-ink">Закрыть</button>
           </div>
         </div>
       )}
@@ -719,23 +719,23 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* «Люди рядом»: сообщение об ошибке/пусто и попап человека */}
       {showNearby && nearbyError && (
-        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-700 shadow-xl backdrop-blur">
+        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-[var(--surface)] p-4 text-sm leading-6 text-[var(--text)] shadow-xl backdrop-blur">
           {nearbyError}
           {nearbyError.includes("18+") && (
             <Link href="/profile" className="mt-2 block text-xs font-black uppercase tracking-wider text-tide hover:text-ink">Подтвердить 18+ в профиле</Link>
           )}
-          <button type="button" onClick={() => { setShowNearby(false); setNearbyError(null); }} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Скрыть</button>
+          <button type="button" onClick={() => { setShowNearby(false); setNearbyError(null); }} className="mt-2 block text-xs font-black uppercase tracking-wider text-[var(--text-muted)] hover:text-ink">Скрыть</button>
         </div>
       )}
       {showNearby && !nearbyError && !nearbyLoading && nearby.length === 0 && (
-        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-600 shadow-xl backdrop-blur">
+        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-[var(--surface)] p-4 text-sm leading-6 text-[var(--text-soft)] shadow-xl backdrop-blur">
           Рядом пока никто не делится своим местоположением. Включить показ себя можно в профиле.
-          <button type="button" onClick={() => setShowNearby(false)} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Скрыть</button>
+          <button type="button" onClick={() => setShowNearby(false)} className="mt-2 block text-xs font-black uppercase tracking-wider text-[var(--text-muted)] hover:text-ink">Скрыть</button>
         </div>
       )}
 
       {popupPerson && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-ink/30 p-5 backdrop-blur-sm" onClick={() => setPopupPerson(null)}>
+        <div className="absolute inset-0 z-30 grid place-items-center bg-[rgba(5,15,23,.42)] p-5 backdrop-blur-sm" onClick={() => setPopupPerson(null)}>
           <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3">
               {popupPerson.avatar_url ? (
@@ -746,10 +746,10 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
               )}
               <div>
                 <p className="font-black text-ink">{popupPerson.display_name}</p>
-                {popupPerson.city && <p className="text-xs text-slate-400">⌖ {popupPerson.city}</p>}
+                {popupPerson.city && <p className="text-xs text-[var(--text-muted)]">⌖ {popupPerson.city}</p>}
               </div>
             </div>
-            <p className="mt-3 text-xs leading-5 text-slate-400">
+            <p className="mt-3 text-xs leading-5 text-[var(--text-muted)]">
               Этот человек подтвердил 18+ и добровольно показывает себя на карте.
             </p>
             {popupPerson.user_id !== currentUserId && (
@@ -763,17 +763,17 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
               </button>
             )}
             {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
-            <button type="button" onClick={() => setPopupPerson(null)} className="mt-3 block w-full text-center text-xs font-bold text-slate-400 hover:text-ink">Закрыть</button>
+            <button type="button" onClick={() => setPopupPerson(null)} className="mt-3 block w-full text-center text-xs font-bold text-[var(--text-muted)] hover:text-ink">Закрыть</button>
           </div>
         </div>
       )}
 
       {/* Геолокация — объяснение */}
       {askGeo && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-ink/40 p-5 backdrop-blur-sm">
+        <div className="absolute inset-0 z-30 grid place-items-center bg-[rgba(5,15,23,.5)] p-5 backdrop-blur-sm">
           <div className="form-card max-w-md">
             <h2 className="text-2xl font-black tracking-tight">Зачем нам ваше местоположение?</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
+            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
               Мы покажем <strong>только вам</strong>, где вы находитесь, чтобы было удобно ориентироваться на карте. Ваша позиция <strong>не публикуется</strong>.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -786,14 +786,14 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
       {/* Ошибка геолокации */}
       {locationSaved && !geoError && (
-        <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-white/95 px-4 py-3 text-sm font-bold text-emerald-800 shadow-xl backdrop-blur">
+        <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-2xl bg-[var(--surface)] px-4 py-3 text-sm font-bold text-[var(--accent-ink)] shadow-xl backdrop-blur">
           Местоположение сохранено только для вашего аккаунта
         </div>
       )}
       {geoError && (
-        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-700 shadow-xl backdrop-blur">
+        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-[var(--surface)] p-4 text-sm leading-6 text-[var(--text)] shadow-xl backdrop-blur">
           {geoError}
-          <button type="button" onClick={() => setGeoError(null)} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Понятно</button>
+          <button type="button" onClick={() => setGeoError(null)} className="mt-2 block text-xs font-black uppercase tracking-wider text-[var(--text-muted)] hover:text-ink">Понятно</button>
         </div>
       )}
     </main>

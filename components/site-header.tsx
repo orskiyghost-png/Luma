@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 type IconName = "map" | "user" | "price" | "login" | "arrow";
 
@@ -22,11 +23,16 @@ function Icon({ name }: { name: IconName }) {
 
 export default async function SiteHeader() {
   let signedIn = false;
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    signedIn = Boolean(user);
-  } catch {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      signedIn = Boolean(user);
+    } catch {
+      signedIn = false;
+    }
+  }
+  if (!isSupabaseConfigured()) {
     signedIn = false;
   }
 
