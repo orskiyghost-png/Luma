@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signInWithGoogleBrowser } from "@/lib/supabase/google";
-import { signIn, signUp, type AuthState } from "./actions";
+import { requestPasswordReset, signIn, signUp, type AuthState } from "./actions";
 
-const initialState: AuthState = { error: null };
-
-type AuthFormProps = { initialMode: "signin" | "signup"; message?: string };
+const initialState: AuthState = { error: null, message: null };
+type AuthMode = "signin" | "signup" | "reset";
+type AuthFormProps = { initialMode: AuthMode; message?: string };
 
 function ArrowIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
@@ -18,15 +18,17 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
 }
 
 export function AuthForm({ initialMode, message }: AuthFormProps) {
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [signUpState, signUpAction, signUpPending] = useActionState(signUp, initialState);
   const [signInState, signInAction, signInPending] = useActionState(signIn, initialState);
+  const [resetState, resetAction, resetPending] = useActionState(requestPasswordReset, initialState);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googlePending, setGooglePending] = useState(false);
   const isSignup = mode === "signup";
-  const state = isSignup ? signUpState : signInState;
-  const pending = isSignup ? signUpPending : signInPending;
+  const isReset = mode === "reset";
+  const state = isReset ? resetState : isSignup ? signUpState : signInState;
+  const pending = isReset ? resetPending : isSignup ? signUpPending : signInPending;
 
   async function handleGoogle() {
     setGoogleError(null);
@@ -38,7 +40,7 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
     }
   }
 
-  function switchMode(nextMode: "signin" | "signup") {
+  function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
     setShowPassword(false);
     setGoogleError(null);
@@ -55,26 +57,28 @@ export function AuthForm({ initialMode, message }: AuthFormProps) {
 
         <section className="auth-form-card animate-reveal" style={{ animationDelay: "100ms" }}>
           <div className="auth-form-top"><Link href="/" className="auth-mobile-brand"><span className="auth-brand-mark">L</span><span>Luma</span></Link><span className="auth-secure"><span className="auth-secure-dot" /> secure access</span></div>
-          <div className="auth-heading"><p className="auth-kicker"><span className="auth-kicker-dot" /> Luma / account</p><h2>{isSignup ? "Создай свой ориентир." : "С возвращением."}</h2><p>{isSignup ? "Один аккаунт для мест, заметок и осознанных разговоров." : "Войди, чтобы продолжить с личной картой."}</p></div>
+          <div className="auth-heading"><p className="auth-kicker"><span className="auth-kicker-dot" /> Luma / account</p><h2>{isReset ? "Верни доступ." : isSignup ? "Создай свой ориентир." : "С возвращением."}</h2><p>{isReset ? "Укажи email — мы отправим ссылку для нового пароля." : isSignup ? "Один аккаунт для мест, заметок и осознанных разговоров." : "Войди, чтобы продолжить с личной картой."}</p></div>
 
-          <div className="auth-tabs" role="tablist" aria-label="Режим аккаунта"><button type="button" role="tab" aria-selected={!isSignup} className={!isSignup ? "auth-tab is-active" : "auth-tab"} onClick={() => switchMode("signin")}>Войти</button><button type="button" role="tab" aria-selected={isSignup} className={isSignup ? "auth-tab is-active" : "auth-tab"} onClick={() => switchMode("signup")}>Создать аккаунт</button></div>
+          {!isReset && <div className="auth-tabs" role="tablist" aria-label="Режим аккаунта"><button type="button" role="tab" aria-selected={!isSignup} className={!isSignup ? "auth-tab is-active" : "auth-tab"} onClick={() => switchMode("signin")}>Войти</button><button type="button" role="tab" aria-selected={isSignup} className={isSignup ? "auth-tab is-active" : "auth-tab"} onClick={() => switchMode("signup")}>Создать аккаунт</button></div>}
 
           {message && <div className="auth-message" role="status">{message}</div>}
+          {state.message && <div className="auth-message" role="status">{state.message}</div>}
           {(state.error || googleError) && <div className="auth-error" role="alert"><span className="auth-error-icon">!</span><span>{googleError ?? state.error}</span></div>}
 
-          <form action={isSignup ? signUpAction : signInAction} className="auth-form">
-            {isSignup && <div className="auth-field"><label htmlFor="displayName" className="auth-label">Имя</label><input id="displayName" name="displayName" type="text" autoComplete="name" placeholder="Как к тебе обращаться" className="auth-input" suppressHydrationWarning /></div>}
+          <form action={isReset ? resetAction : isSignup ? signUpAction : signInAction} className="auth-form">
             <div className="auth-field"><label htmlFor="email" className="auth-label">Email</label><input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className="auth-input" required suppressHydrationWarning /></div>
-            <div className="auth-field"><div className="flex items-center justify-between"><label htmlFor="password" className="auth-label">Пароль</label>{!isSignup && <button type="button" className="auth-inline-action" onClick={() => setGoogleError("Восстановление пароля будет доступно после подключения email recovery в Supabase.")}>Забыли пароль?</button>}</div><div className="auth-password-wrap"><input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete={isSignup ? "new-password" : "current-password"} placeholder="Минимум 8 символов" minLength={8} className="auth-input auth-password-input" required suppressHydrationWarning /><button type="button" className="auth-password-toggle" aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"} onClick={() => setShowPassword((value) => !value)}><EyeIcon hidden={showPassword} /></button></div></div>
-            {isSignup && <div className="auth-field"><label htmlFor="dateOfBirth" className="auth-label">Дата рождения</label><input id="dateOfBirth" name="dateOfBirth" type="date" className="auth-input" required suppressHydrationWarning /><p className="auth-hint">Нужно для безопасных функций и возрастных ограничений.</p></div>}
-            <button type="submit" className="primary-button auth-submit" disabled={pending}>{pending ? <><span className="auth-spinner" /> Обрабатываем...</> : <>{isSignup ? "Создать аккаунт" : "Войти"}<ArrowIcon /></>}</button>
+            {!isReset && <>
+              {isSignup && <div className="auth-field"><label htmlFor="displayName" className="auth-label">Имя</label><input id="displayName" name="displayName" type="text" autoComplete="name" placeholder="Как к тебе обращаться" className="auth-input" suppressHydrationWarning /></div>}
+              <div className="auth-field"><div className="flex items-center justify-between"><label htmlFor="password" className="auth-label">Пароль</label>{!isSignup && <button type="button" className="auth-inline-action" onClick={() => switchMode("reset")}>Забыли пароль?</button>}</div><div className="auth-password-wrap"><input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete={isSignup ? "new-password" : "current-password"} placeholder="Минимум 8 символов" minLength={8} className="auth-input auth-password-input" required suppressHydrationWarning /><button type="button" className="auth-password-toggle" aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"} onClick={() => setShowPassword((value) => !value)}><EyeIcon hidden={showPassword} /></button></div></div>
+              {isSignup && <div className="auth-field"><label htmlFor="dateOfBirth" className="auth-label">Дата рождения</label><input id="dateOfBirth" name="dateOfBirth" type="date" className="auth-input" required suppressHydrationWarning /><p className="auth-hint">Нужно для безопасных функций и возрастных ограничений.</p></div>}
+            </>}
+            <button type="submit" className="primary-button auth-submit" disabled={pending}>{pending ? <><span className="auth-spinner" /> Обрабатываем...</> : <>{isReset ? "Отправить письмо" : isSignup ? "Создать аккаунт" : "Войти"}<ArrowIcon /></>}</button>
           </form>
 
-          <div className="auth-divider"><span>или</span></div>
-          <button type="button" onClick={handleGoogle} className="auth-google" disabled={googlePending}><span className="auth-google-mark">G</span><span>{googlePending ? "Открываем Google..." : "Продолжить через Google"}</span><ArrowIcon /></button>
-          <div className="auth-trust"><span className="auth-trust-icon">✓</span><span>Мы не показываем твою точную позицию без твоего согласия.</span></div>
-          <p className="auth-legal">Продолжая, ты принимаешь <Link href="/legal">правила Luma</Link> и нашу политику приватности.</p>
-          <Link href="/" className="auth-back">Вернуться на главную <ArrowIcon /></Link>
+          {!isReset && <><div className="auth-divider"><span>или</span></div><button type="button" onClick={handleGoogle} className="auth-google" disabled={googlePending}><span className="auth-google-mark">G</span><span>{googlePending ? "Открываем Google..." : "Продолжить через Google"}</span><ArrowIcon /></button></>}
+          {!isReset && <div className="auth-trust"><span className="auth-trust-icon">✓</span><span>Мы не показываем твою точную позицию без твоего согласия.</span></div>}
+          {!isReset && <p className="auth-legal">Продолжая, ты принимаешь <Link href="/legal">правила Luma</Link> и нашу политику приватности.</p>}
+          {isReset ? <button type="button" className="auth-back" onClick={() => switchMode("signin")}>← Вернуться ко входу</button> : <Link href="/" className="auth-back">Вернуться на главную <ArrowIcon /></Link>}
         </section>
       </div>
     </main>
