@@ -30,10 +30,12 @@ export default async function SiteHeader() {
           <>
             <Link href="/map" className="hover:text-ink">Карта</Link>
             <Link href="/profile" className="rounded-full bg-tide px-4 py-2 text-ink hover:shadow-glow">Профиль</Link>
+            <Link href="/pricing" className="hover:text-ink">Тарифы</Link>
           </>
         ) : (
           <>
             <Link href="/auth" className="hover:text-ink">Войти</Link>
+            <Link href="/pricing" className="hover:text-ink">Тарифы</Link>
             <Link href="/auth?mode=signup" className="rounded-full bg-tide px-4 py-2 text-ink hover:shadow-glow">Создать аккаунт</Link>
           </>
         )}

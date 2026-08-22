@@ -36,7 +36,7 @@ export async function updateProfile(_previous: ProfileState, formData: FormData)
     .from("profiles")
     .update(profileData)
     .eq("user_id", user.id)
-    .select("user_id")
+    .select("user_id, stripe_customer_id, is_pro")
     .maybeSingle();
 
   let error = updated.error;
@@ -44,7 +44,7 @@ export async function updateProfile(_previous: ProfileState, formData: FormData)
     const inserted = await supabase
       .from("profiles")
       .insert({ user_id: user.id, ...profileData })
-      .select("user_id")
+      .select("user_id, stripe_customer_id, is_pro")
       .maybeSingle();
     error = inserted.error;
   }
