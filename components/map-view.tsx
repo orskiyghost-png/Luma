@@ -314,28 +314,45 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       </header>
 
       {/* Нижние кнопки */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center gap-3">
+      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-wrap justify-center gap-3 px-4">
         <button type="button" onClick={() => setAskGeo(true)} disabled={locating}
-          className="pointer-events-auto primary-button shadow-xl disabled:cursor-wait disabled:opacity-70">
+          className="pointer-events-auto primary-button min-w-0 flex-1 shadow-xl disabled:cursor-wait disabled:opacity-70 sm:flex-none">
           {locating ? "Определяем…" : "📍 Моё место"}
         </button>
-        {mode === "webgl" && (
-          <button
-            type="button"
-            onClick={() => { setPlacing(!placing); setPendingLat(null); setPendingLng(null); setActionError(null); }}
-            className={`pointer-events-auto rounded-2xl px-4 py-3 text-sm font-black shadow-xl transition ${
-              placing ? "bg-coral text-white" : "bg-ink text-white hover:bg-ink/90"
-            }`}
-          >
-            {placing ? "✕ Отмена" : "＋ Метка"}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            const nextPlacing = !placing;
+            setPlacing(nextPlacing);
+            setActionError(null);
+            setPendingLat(null);
+            setPendingLng(null);
+            // В запасном режиме карта — iframe, его нельзя обработать кликом
+            // из приложения. Берём текущий центр карты; после геолокации это
+            // будет точка пользователя.
+            if (nextPlacing && mode === "fallback") {
+              setPendingLat(centerRef.current.lat);
+              setPendingLng(centerRef.current.lng);
+            }
+          }}
+          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
+            placing ? "bg-coral text-white" : "bg-ink text-white hover:bg-ink/90"
+          }`}
+        >
+          {placing ? "✕ Отмена" : "＋ Поставить метку"}
+        </button>
       </div>
 
       {/* Подсказка при размещении */}
-      {placing && !pendingLat && (
+      {placing && pendingLat == null && (
         <div className="absolute bottom-28 left-1/2 z-20 w-[min(90vw,24rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-sm font-bold text-white shadow-xl text-center">
           Нажмите на карту, чтобы поставить метку
+        </div>
+      )}
+
+      {placing && mode === "fallback" && pendingLat != null && (
+        <div className="absolute bottom-28 left-1/2 z-20 w-[min(92vw,27rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-center text-sm font-bold text-white shadow-xl">
+          Для этой версии карты метка будет поставлена в центре экрана. Нажмите «Опубликовать» ниже.
         </div>
       )}
 
