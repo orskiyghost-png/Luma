@@ -41,7 +41,7 @@ function buildMarkerEl(category: string): HTMLDivElement {
     "display:grid;place-items:center;font-size:18px;cursor:pointer",
     "transform:rotate(-45deg);transition:transform .2s",
   ].join(";");
-    el.innerHTML = `<span aria-hidden="true" style="transform:rotate(45deg);font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;
+    el.innerHTML = `<span aria-hidden="true" style="transform:rotate(45deg);font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;
   return el;
 }
 
