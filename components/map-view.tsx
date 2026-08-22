@@ -18,10 +18,10 @@ type MapViewProps = {
 };
 
 const CATEGORY_ICON: Record<string, string> = {
-  dtp: "◆",
-  police: "✚",
-  hangout: "✦",
-  other: "•",
+  dtp: "🚗",
+  police: "🚔",
+  hangout: "🎉",
+  other: "📌",
 };
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -41,7 +41,7 @@ function buildMarkerEl(category: string): HTMLDivElement {
     "display:grid;place-items:center;font-size:18px;cursor:pointer",
     "transform:rotate(-45deg);transition:transform .2s",
   ].join(";");
-  el.innerHTML = `<span style="transform:rotate(45deg)">${CATEGORY_ICON[category] ?? "📍"}</span>`;
+    el.innerHTML = `<span aria-hidden="true" style="transform:rotate(45deg);font-weight:800">${CATEGORY_ICON[category] ?? "•"}</span>`;
   return el;
 }
 
@@ -302,7 +302,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       setPendingText("");
       setActionError(null);
     },
-    [],
+    [placing],
   );
 
   useEffect(() => {
@@ -417,7 +417,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           "box-shadow:0 3px 12px rgba(0,0,0,.25)",
           "display:grid;place-items:center;font-size:16px;cursor:pointer",
         ].join(";");
-        el.textContent = "🧑";
+        el.textContent = "◉";
         const mk = new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([person.lng, person.lat])
           .addTo(m);
@@ -483,7 +483,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full rounded-full border-2 border-white px-2 py-1 text-base shadow-lg"
                 style={{ ...fallbackPointStyle(row.lat, row.lng), backgroundColor: CATEGORY_COLOR[row.category] ?? "#778ca3" }}
               >
-                {CATEGORY_ICON[row.category] ?? "•"}
+                {CATEGORY_ICON[row.category] ?? "⌖"}
               </button>
             ))}
           </div>
@@ -530,10 +530,6 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           }`}
         >
           {placing ? "✕ Отмена" : "＋ Поставить метку"}
-        </button>
-        <button type="button" aria-pressed={showMarkers} onClick={() => setShowMarkers((value) => !value)}
-          className={`pointer-events-auto min-w-0 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${showMarkers ? "bg-white/90 text-ink hover:bg-white" : "bg-slate-800 text-white"}`}>
-          {showMarkers ? "◌ Метки" : "◌ Метки скрыты"}
         </button>
         <button
           type="button"
@@ -634,7 +630,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       {popupMarker && (
         <div className="absolute inset-0 z-30 grid place-items-center bg-ink/30 p-5 backdrop-blur-sm" onClick={() => setPopupMarker(null)}>
           <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-2xl">{CATEGORY_ICON[popupMarker.category] ?? "•"}</div>
+            <div className="mb-2 text-2xl">{CATEGORY_ICON[popupMarker.category] ?? "⌖"}</div>
             <p className="text-sm font-bold text-ink">{CATEGORIES.find((c) => c.id === popupMarker.category)?.label ?? popupMarker.category}</p>
             <p className="mt-2 text-sm leading-6 text-slate-700">{popupMarker.text || "Без текста"}</p>
             <p className="mt-1 text-xs text-slate-400">
@@ -680,7 +676,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                   onClick={() => handleContactAuthor(popupMarker.author_id)}
                   className="primary-button w-full disabled:opacity-60"
                 >
-                  {contactBusy ? "Открываем…" : "✉️ Написать автору"}
+                  {contactBusy ? "Открываем…" : "✉ Написать автору"}
                 </button>
                 {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
                 <p className="mt-2 text-xs leading-5 text-slate-400">
@@ -737,7 +733,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
               )}
               <div>
                 <p className="font-black text-ink">{popupPerson.display_name}</p>
-                {popupPerson.city && <p className="text-xs text-slate-400">📍 {popupPerson.city}</p>}
+                {popupPerson.city && <p className="text-xs text-slate-400">⌖ {popupPerson.city}</p>}
               </div>
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-400">
@@ -750,7 +746,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 onClick={() => handleContactPerson(popupPerson.user_id)}
                 className="primary-button mt-4 w-full disabled:opacity-60"
               >
-                {contactBusy ? "Открываем…" : "✉️ Написать"}
+                {contactBusy ? "Открываем…" : "✉ Написать"}
               </button>
             )}
             {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
@@ -789,4 +785,4 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       )}
     </main>
   );
-  }
+      }
