@@ -542,6 +542,18 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         >
           {nearbyLoading ? "Ищем…" : showNearby ? "◉ Люди рядом ✓" : "◉ Люди рядом"}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowMarkers((visible) => !visible)}
+          aria-pressed={showMarkers}
+          aria-label={showMarkers ? "Скрыть метки" : "Показать метки"}
+          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
+            showMarkers ? "bg-white/90 text-ink hover:bg-white" : "bg-ink text-white hover:bg-ink/90"
+          }`}
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 inline-block h-4 w-4 align-[-0.15em]"><path d="M12 3l7 7-7 7-7-7 7-7Z"/><path d="M5 20h14"/></svg>
+          <span className="hidden sm:inline">{showMarkers ? "Скрыть метки" : "Показать метки"}</span>
+        </button>
       </div>
 
       {/* Выбор точки на запасной карте: overlay получает касание поверх iframe
