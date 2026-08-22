@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 /**
  * Общая шапка сайта. Умеет видеть состояние входа:
@@ -23,7 +24,7 @@ export default async function SiteHeader() {
     <header className="mx-auto flex min-h-20 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
       <Link href="/" className="flex items-center gap-3 font-black tracking-tight">
         <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-sm text-white">L</span>
-        <span>Luma</span>
+        <span className="text-2xl">Luma</span>
       </Link>
       <nav className="flex items-center gap-5 text-sm font-bold text-slate-600">
         {signedIn ? (

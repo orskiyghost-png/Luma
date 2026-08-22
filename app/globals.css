@@ -9,6 +9,23 @@
   --line: rgba(8, 17, 31, 0.12);
   --tide: #27b99a;
   --coral: #ff8066;
+  --primary: #27b99a;
+  --accent: #ff8066;
+  --success: #27b99a;
+  --warning: #ff8066;
+  --danger: #ff8066;
+  --info: #7b8b95;
+  --text-primary: #08111f;
+  --text-secondary: #7b8b95;
+  --text-muted: #a1b0b8;
+  --bg-primary: #f5f8f4;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9f7;
+  --border-color: rgba(8, 17, 31, 0.08);
+  --border-color-hover: rgba(8, 17, 31, 0.12);
+  --shadow-sm: 0 1px 2px 0 rgba(8, 17, 31, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(8, 17, 31, 0.1);
+  --shadow-glow: 0 0 0 3px rgba(39, 185, 154, 0.1);
 }
 
 * {
@@ -122,4 +139,68 @@ textarea {
   padding: 0.75rem 0.9rem;
   color: #a53c2d;
   font-size: 0.9rem;
+}
+
+/* Единые состояния: загрузка, успех, пустой экран */
+.success-message {
+  border-radius: 0.75rem;
+  background: rgba(39, 185, 154, 0.1);
+  padding: 0.75rem 0.9rem;
+  color: #167a64;
+  font-size: 0.9rem;
+}
+
+.info-message {
+  border-radius: 0.75rem;
+  background: #eef5f2;
+  padding: 0.75rem 0.9rem;
+  color: #53646e;
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 3px solid rgba(39, 185, 154, 0.25);
+  border-top-color: var(--tide);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Кнопки: единые состояния */
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 3px solid rgba(39, 185, 154, 0.4);
+  outline-offset: 2px;
+}
+
+/* Мобильная адаптация шапки */
+@media (max-width: 480px) {
+  header nav {
+    gap: 0.75rem !important;
+    font-size: 0.8rem;
+  }
+  header nav .rounded-full {
+    padding: 0.45rem 0.8rem;
+  }
 }
