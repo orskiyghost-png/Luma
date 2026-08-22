@@ -3,24 +3,24 @@
 import { normalizeSupabaseUrl } from "@/lib/supabase/client";
 
 /**
- * Запускает вход через Google прямой ссылкой на /auth/v1/authorize.
- * В отличие от библиотечного метода, ключ (apikey) всегда присутствует
- * в адресе, поэтому Supabase не отвечает «No API key found in request».
+ * Builds the Supabase OAuth URL for the current deployment.
+ * The redirect is always derived from the active origin so preview and production
+ * environments do not share a stale callback URL.
  */
 export async function signInWithGoogleBrowser(): Promise<string | null> {
   const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!base || !key) {
-    return "Не заданы настройки Supabase. Добавьте их в настройках Freebuff.";
+    return "Вход временно недоступен: подключение к Supabase не настроено для этого окружения.";
   }
 
-  const redirectTo = `${window.location.origin}/auth/callback`;
-  const authorizeUrl =
-    `${base}/auth/v1/authorize?provider=google` +
-    `&redirect_to=${encodeURIComponent(redirectTo)}` +
-    `&apikey=${encodeURIComponent(key)}`;
+  const redirectTo = new URL("/auth/callback", window.location.origin).toString();
+  const authorizeUrl = new URL("/auth/v1/authorize", base);
+  authorizeUrl.searchParams.set("provider", "google");
+  authorizeUrl.searchParams.set("redirect_to", redirectTo);
+  authorizeUrl.searchParams.set("apikey", key);
 
-  window.location.assign(authorizeUrl);
+  window.location.assign(authorizeUrl.toString());
   return null;
 }
