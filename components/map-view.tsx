@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, MapMouseEvent, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addMarker, deleteMarker, getActiveMarkers, getMarkerReactions, saveCurrentLocation, toggleReaction, type MarkerRow, type ReactionSummary } from "@/app/map/actions";
+import { addMarker, deleteMarker, getActiveMarkers, getMarkerReactions, getNearbyPeople, saveCurrentLocation, toggleReaction, type MarkerRow, type NearbyPerson, type ReactionSummary } from "@/app/map/actions";
 import { startConversation } from "@/app/messages/actions";
 import { CATEGORIES, REACTIONS } from "@/lib/markers";
 import { ReportDialog } from "@/components/report-dialog";
@@ -83,6 +83,14 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [reportMarkerId, setReportMarkerId] = useState<string | null>(null);
+
+  /* ---- «Люди рядом» (только 18+, opt-in) ---- */
+  const [nearby, setNearby] = useState<NearbyPerson[]>([]);
+  const [showNearby, setShowNearby] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [popupPerson, setPopupPerson] = useState<NearbyPerson | null>(null);
+  const nearbyMarkerRefs = useRef<Map<string, Marker>>(new Map());
 
   const [markers, setMarkers] = useState<MarkerRow[]>(initialMarkers);
   const markersRef = useRef(markers);
@@ -357,6 +365,72 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
     router.push(`/messages/${result.conversationId}`);
   }
 
+  const loadNearby = useCallback(async () => {
+    setNearbyError(null);
+    setNearbyLoading(true);
+    const result = await getNearbyPeople();
+    setNearbyLoading(false);
+    if ("error" in result) {
+      setNearbyError(result.error);
+      setNearby([]);
+      return;
+    }
+    setNearby(result.people);
+  }, []);
+
+  async function handleToggleNearby() {
+    const next = !showNearby;
+    setShowNearby(next);
+    if (next) await loadNearby();
+    else setNearbyError(null);
+  }
+
+  async function handleContactPerson(userId: string) {
+    setContactError(null);
+    setContactBusy(true);
+    const result = await startConversation(userId);
+    setContactBusy(false);
+    if ("error" in result) { setContactError(result.error); return; }
+    router.push(`/messages/${result.conversationId}`);
+  }
+
+  // Маркеры «людей рядом» на WebGL-карте: добавляются/снимаются вместе с
+  // переключателем showNearby и обновлением списка.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mode !== "webgl") return;
+
+    nearbyMarkerRefs.current.forEach((mk) => mk.remove());
+    nearbyMarkerRefs.current.clear();
+    if (!showNearby) return;
+
+    function render() {
+      const m = mapRef.current;
+      if (!m) return;
+      nearby.forEach((person) => {
+        const el = document.createElement("div");
+        el.style.cssText = [
+          "width:34px;height:34px;border-radius:50%",
+          "background:#27b99a;border:3px solid white",
+          "box-shadow:0 3px 12px rgba(0,0,0,.25)",
+          "display:grid;place-items:center;font-size:16px;cursor:pointer",
+        ].join(";");
+        el.textContent = "🧑";
+        const mk = new maplibregl.Marker({ element: el, anchor: "bottom" })
+          .setLngLat([person.lng, person.lat])
+          .addTo(m);
+        el.addEventListener("click", () => setPopupPerson(person));
+        nearbyMarkerRefs.current.set(person.user_id, mk);
+      });
+    }
+
+    if (!map.isStyleLoaded()) {
+      map.once("load", render);
+      return () => { map.off("load", render); };
+    }
+    render();
+  }, [mode, showNearby, nearby]);
+
   // ====== OSM fallback ======
   const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${osmBounds.west},${osmBounds.south},${osmBounds.east},${osmBounds.north}`)}&layer=mapnik&marker=${center.lat},${center.lng}`;
   const fallbackPointStyle = (lat: number, lng: number) => ({
@@ -454,6 +528,16 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           }`}
         >
           {placing ? "✕ Отмена" : "＋ Поставить метку"}
+        </button>
+        <button
+          type="button"
+          onClick={handleToggleNearby}
+          disabled={nearbyLoading}
+          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition disabled:opacity-70 sm:flex-none sm:px-4 ${
+            showNearby ? "bg-tide text-ink" : "bg-white/90 text-ink hover:bg-white"
+          }`}
+        >
+          {nearbyLoading ? "Ищем…" : showNearby ? "🧑 Люди рядом ✓" : "🧑 Люди рядом"}
         </button>
       </div>
 
@@ -616,6 +700,57 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
           targetId={reportMarkerId}
           onClose={() => setReportMarkerId(null)}
         />
+      )}
+
+      {/* «Люди рядом»: сообщение об ошибке/пусто и попап человека */}
+      {showNearby && nearbyError && (
+        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-700 shadow-xl backdrop-blur">
+          {nearbyError}
+          {nearbyError.includes("18+") && (
+            <Link href="/profile" className="mt-2 block text-xs font-black uppercase tracking-wider text-tide hover:text-ink">Подтвердить 18+ в профиле</Link>
+          )}
+          <button type="button" onClick={() => { setShowNearby(false); setNearbyError(null); }} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Скрыть</button>
+        </div>
+      )}
+      {showNearby && !nearbyError && !nearbyLoading && nearby.length === 0 && (
+        <div className="absolute bottom-24 left-1/2 z-20 w-[min(92vw,26rem)] -translate-x-1/2 rounded-2xl bg-white/95 p-4 text-sm leading-6 text-slate-600 shadow-xl backdrop-blur">
+          Рядом пока никто не делится своим местоположением. Включить показ себя можно в профиле.
+          <button type="button" onClick={() => setShowNearby(false)} className="mt-2 block text-xs font-black uppercase tracking-wider text-slate-400 hover:text-ink">Скрыть</button>
+        </div>
+      )}
+
+      {popupPerson && (
+        <div className="absolute inset-0 z-30 grid place-items-center bg-ink/30 p-5 backdrop-blur-sm" onClick={() => setPopupPerson(null)}>
+          <div className="form-card max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              {popupPerson.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={popupPerson.avatar_url} alt="" className="h-12 w-12 rounded-2xl object-cover" />
+              ) : (
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-tide text-lg font-black text-ink">{popupPerson.display_name.slice(0, 1).toUpperCase()}</div>
+              )}
+              <div>
+                <p className="font-black text-ink">{popupPerson.display_name}</p>
+                {popupPerson.city && <p className="text-xs text-slate-400">📍 {popupPerson.city}</p>}
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+              Этот человек подтвердил 18+ и добровольно показывает себя на карте.
+            </p>
+            {popupPerson.user_id !== currentUserId && (
+              <button
+                type="button"
+                disabled={contactBusy}
+                onClick={() => handleContactPerson(popupPerson.user_id)}
+                className="primary-button mt-4 w-full disabled:opacity-60"
+              >
+                {contactBusy ? "Открываем…" : "✉️ Написать"}
+              </button>
+            )}
+            {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
+            <button type="button" onClick={() => setPopupPerson(null)} className="mt-3 block w-full text-center text-xs font-bold text-slate-400 hover:text-ink">Закрыть</button>
+          </div>
+        </div>
       )}
 
       {/* Геолокация — объяснение */}

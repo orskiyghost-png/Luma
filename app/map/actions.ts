@@ -184,3 +184,83 @@ export async function getActiveMarkers(): Promise<MarkerRow[]> {
 
   return (data as MarkerRow[]) ?? [];
 }
+
+export type NearbyPerson = {
+  user_id: string;
+  lat: number;
+  lng: number;
+  display_name: string;
+  avatar_url: string | null;
+  city: string | null;
+};
+
+export type NearbyResult =
+  | { error: string }
+  | { people: NearbyPerson[]; selfSharing: boolean };
+
+/**
+ * «Люди рядом»: другие пользователи, которые подтвердили 18+ и включили показ
+ * себя на карте. Видимость этих строк гарантируется RLS live_locations —
+ * читателю не-18+ вернётся только его собственная строка, поэтому список
+ * окажется пустым. Дополнительно фильтруем на сервере по флагу возраста.
+ */
+export async function getNearbyPeople(): Promise<NearbyResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Нужно войти в аккаунт." };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("age_verified_adult")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!me?.age_verified_adult) {
+    return { error: "Функция «люди рядом» доступна только после подтверждения 18+." };
+  }
+
+  const { data: locs, error } = await supabase
+    .from("live_locations")
+    .select("user_id, lat, lng, sharing_enabled")
+    .eq("sharing_enabled", true);
+
+  if (error) return { error: "Не удалось загрузить людей поблизости." };
+
+  const rows = (locs as { user_id: string; lat: number; lng: number }[] | null) ?? [];
+  const others = rows.filter((r) => r.user_id !== user.id);
+  const selfSharing = rows.some((r) => r.user_id === user.id);
+
+  if (others.length === 0) return { people: [], selfSharing };
+
+  const ids = others.map((r) => r.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, avatar_url, city, city_visible")
+    .in("user_id", ids);
+
+  const cards = new Map(
+    ((profiles as {
+      user_id: string;
+      display_name: string;
+      avatar_url: string | null;
+      city: string | null;
+      city_visible: boolean;
+    }[] | null) ?? []).map((p) => [p.user_id, p]),
+  );
+
+  const people: NearbyPerson[] = others.map((r) => {
+    const card = cards.get(r.user_id);
+    return {
+      user_id: r.user_id,
+      lat: r.lat,
+      lng: r.lng,
+      display_name: card?.display_name ?? "Пользователь",
+      avatar_url: card?.avatar_url ?? null,
+      city: card?.city_visible ? (card?.city ?? null) : null,
+    };
+  });
+
+  return { people, selfSharing };
+}
