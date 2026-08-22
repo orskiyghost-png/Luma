@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, MapMouseEvent, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addMarker, deleteMarker, getActiveMarkers, CATEGORIES, type MarkerRow } from "@/app/map/actions";
+import { addMarker, deleteMarker, getActiveMarkers, type MarkerRow } from "@/app/map/actions";
+import { CATEGORIES } from "@/lib/markers";
 
 type MapViewProps = {
   styleUrl: string | null;
