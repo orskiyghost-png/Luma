@@ -16,7 +16,8 @@ export async function middleware(request: NextRequest) {
     if (
       request.nextUrl.pathname.startsWith("/profile") ||
       request.nextUrl.pathname.startsWith("/map") ||
-      request.nextUrl.pathname.startsWith("/messages")
+      request.nextUrl.pathname.startsWith("/messages") ||
+      request.nextUrl.pathname.startsWith("/admin")
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
@@ -49,7 +50,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if ((request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map") || request.nextUrl.pathname.startsWith("/messages")) && !user) {
+  if ((request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map") || request.nextUrl.pathname.startsWith("/messages") || request.nextUrl.pathname.startsWith("/admin")) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
     url.searchParams.set("returnTo", request.nextUrl.pathname);
@@ -60,5 +61,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/map/:path*", "/messages/:path*", "/auth/callback"],
+  matcher: ["/profile/:path*", "/map/:path*", "/messages/:path*", "/admin/:path*", "/auth/callback"],
 };

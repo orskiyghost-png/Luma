@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/security";
 
 export type ConversationStatus = "pending" | "accepted" | "blocked";
 
@@ -80,6 +81,10 @@ export async function startConversation(
     .maybeSingle();
 
   if (existing) return { conversationId: existing.id };
+
+  // Антиспам: не больше 10 новых бесед в час на пользователя.
+  const allowed = await checkRateLimit("start_conversation", 10, 3600);
+  if (!allowed) return { error: "Слишком много новых бесед подряд. Попробуйте позже." };
 
   const { data: created, error } = await supabase
     .from("conversations")
@@ -224,6 +229,10 @@ export async function sendMessage(
 
   const trimmed = body.trim().slice(0, 4000);
   if (!trimmed) return { error: "Пустое сообщение." };
+
+  // Антиспам: не больше 20 сообщений в минуту на пользователя.
+  const allowed = await checkRateLimit("send_message", 20, 60);
+  if (!allowed) return { error: "Слишком много сообщений подряд. Подождите немного." };
 
   const { data: conversation } = await supabase
     .from("conversations")

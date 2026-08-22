@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/security";
 import { CATEGORY_TTL, DEFAULT_TTL_HOURS } from "@/lib/markers";
 
 export type MarkerRow = {
@@ -123,6 +124,10 @@ export async function addMarker(
 
   const trimmed = text.trim().slice(0, 280);
   if (!trimmed) return { error: "Напишите текст заметки." };
+
+  // Антиспам: не больше 5 меток в минуту на пользователя.
+  const allowed = await checkRateLimit("create_marker", 5, 60);
+  if (!allowed) return { error: "Слишком много меток подряд. Подождите минуту." };
 
   const ttlHours = CATEGORY_TTL[category] ?? DEFAULT_TTL_HOURS;
   const expiresAt = new Date(Date.now() + ttlHours * 3600_000).toISOString();

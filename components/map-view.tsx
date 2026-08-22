@@ -9,6 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { addMarker, deleteMarker, getActiveMarkers, getMarkerReactions, saveCurrentLocation, toggleReaction, type MarkerRow, type ReactionSummary } from "@/app/map/actions";
 import { startConversation } from "@/app/messages/actions";
 import { CATEGORIES, REACTIONS } from "@/lib/markers";
+import { ReportDialog } from "@/components/report-dialog";
 
 type MapViewProps = {
   styleUrl: string | null;
@@ -81,6 +82,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
   const [reactionBusy, setReactionBusy] = useState(false);
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [reportMarkerId, setReportMarkerId] = useState<string | null>(null);
 
   const [markers, setMarkers] = useState<MarkerRow[]>(initialMarkers);
   const markersRef = useRef(markers);
@@ -594,11 +596,26 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 <p className="mt-2 text-xs leading-5 text-slate-400">
                   Автор получит приглашение к переписке и сможет его принять или отклонить.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setReportMarkerId(popupMarker.id)}
+                  className="mt-3 text-sm font-bold text-slate-400 hover:text-coral"
+                >
+                  ⚑ Пожаловаться на метку
+                </button>
               </div>
             )}
             <button type="button" onClick={() => setPopupMarker(null)} className="mt-3 block w-full text-center text-xs font-bold text-slate-400 hover:text-ink">Закрыть</button>
           </div>
         </div>
+      )}
+
+      {reportMarkerId && (
+        <ReportDialog
+          targetType="marker"
+          targetId={reportMarkerId}
+          onClose={() => setReportMarkerId(null)}
+        />
       )}
 
       {/* Геолокация — объяснение */}

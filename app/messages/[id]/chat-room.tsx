@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ReportDialog } from "@/components/report-dialog";
 import {
   getConversation,
   sendMessage,
@@ -28,6 +29,7 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [reporting, setReporting] = useState(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
@@ -125,6 +127,16 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
             Заблокировать
           </button>
         )}
+        {partner?.user_id && (
+          <button
+            type="button"
+            onClick={() => setReporting(true)}
+            className="text-xs font-bold text-slate-400 hover:text-coral"
+            title="Пожаловаться"
+          >
+            ⚑
+          </button>
+        )}
       </header>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
@@ -211,6 +223,13 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
             </button>
           </div>
         </div>
+      )}
+      {reporting && partner?.user_id && (
+        <ReportDialog
+          targetType="profile"
+          targetId={partner.user_id}
+          onClose={() => setReporting(false)}
+        />
       )}
     </main>
   );
