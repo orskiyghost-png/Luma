@@ -293,18 +293,15 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
     setActionError(null);
   }, [osmBounds.east, osmBounds.north, osmBounds.south, osmBounds.west]);
 
-  const handleMapClick = useCallback(
-    (e: MapMouseEvent) => {
-      setPlacing(true);
-      setPendingLat(e.lngLat.lat);
-      setPendingLng(e.lngLat.lng);
-      setPendingScreen(null);
-      setPendingCategory("other");
-      setPendingText("");
-      setActionError(null);
-    },
-    [placing],
-  );
+  const handleMapClick = useCallback((e: MapMouseEvent) => {
+    setPlacing(true);
+    setPendingLat(e.lngLat.lat);
+    setPendingLng(e.lngLat.lng);
+    setPendingScreen(null);
+    setPendingCategory("other");
+    setPendingText("");
+    setActionError(null);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -510,51 +507,39 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         </div>
       </header>
 
-      {/* Нижние кнопки */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-wrap justify-center gap-3 px-4">
+      {/* Компактные действия. Метка ставится прямым нажатием по карте. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-20 flex items-end justify-center gap-2 px-3 sm:gap-3 sm:px-4">
         <button type="button" onClick={() => setAskGeo(true)} disabled={locating}
-          className="pointer-events-auto primary-button min-w-0 flex-1 shadow-xl disabled:cursor-wait disabled:opacity-70 sm:flex-none">
-          {locating ? "Определяем…" : "⌖ Моё место"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const nextPlacing = !placing;
-            setPlacing(nextPlacing);
-            setActionError(null);
-            setPendingLat(null);
-            setPendingLng(null);
-            setPendingScreen(null);
-          }}
-          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
-            placing ? "bg-coral text-white" : "bg-ink text-white hover:bg-ink/90"
-          }`}
-        >
-          {placing ? "✕ Отмена" : "＋ Поставить метку"}
+          className="glass-control pointer-events-auto grid min-h-14 min-w-0 flex-1 place-items-center rounded-2xl px-2 py-2 text-center text-xs font-black transition disabled:cursor-wait disabled:opacity-70 sm:min-w-36 sm:flex-none sm:px-4 sm:text-sm">
+          <span className="text-base" aria-hidden="true">⌖</span>
+          <span>{locating ? "Определяем…" : "Моё место"}</span>
         </button>
         <button
           type="button"
           onClick={handleToggleNearby}
           disabled={nearbyLoading}
-          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition disabled:opacity-70 sm:flex-none sm:px-4 ${
-            showNearby ? "bg-tide text-ink" : "bg-[var(--surface)] text-ink hover:bg-[var(--surface)]"
-          }`}
+          className={`glass-control pointer-events-auto grid min-h-14 min-w-0 flex-1 place-items-center rounded-2xl px-2 py-2 text-center text-xs font-black transition disabled:opacity-70 sm:min-w-36 sm:flex-none sm:px-4 sm:text-sm ${showNearby ? "!border-[var(--accent)] !bg-[rgba(123,231,210,.18)]" : ""}`}
         >
-          {nearbyLoading ? "Ищем…" : showNearby ? "◉ Люди рядом ✓" : "◉ Люди рядом"}
+          <span className="text-base" aria-hidden="true">◉</span>
+          <span>{nearbyLoading ? "Ищем…" : "Люди рядом"}</span>
         </button>
         <button
           type="button"
           onClick={() => setShowMarkers((visible) => !visible)}
           aria-pressed={showMarkers}
           aria-label={showMarkers ? "Скрыть метки" : "Показать метки"}
-          className={`pointer-events-auto min-w-0 flex-1 rounded-2xl px-3 py-3 text-sm font-black shadow-xl transition sm:flex-none sm:px-4 ${
-            showMarkers ? "bg-[var(--surface)] text-ink hover:bg-[var(--surface)]" : "bg-ink text-white hover:bg-ink/90"
-          }`}
+          className="glass-control pointer-events-auto grid min-h-14 min-w-0 flex-1 place-items-center rounded-2xl px-2 py-2 text-center text-xs font-black transition sm:min-w-36 sm:flex-none sm:px-4 sm:text-sm"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5 inline-block h-4 w-4 align-[-0.15em]"><path d="M12 3l7 7-7 7-7-7 7-7Z"/><path d="M5 20h14"/></svg>
-          <span className="hidden sm:inline">{showMarkers ? "Скрыть метки" : "Показать метки"}</span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M12 3l7 7-7 7-7-7 7-7Z"/><path d="M5 20h14"/></svg>
+          <span>{showMarkers ? "Метки" : "Показать"}</span>
         </button>
       </div>
+
+      {!placing && (
+        <div className="glass-control pointer-events-none absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-full px-4 py-2 text-center text-xs font-bold text-[var(--text-soft)] shadow-lg">
+          Нажмите на карту, чтобы поставить метку
+        </div>
+      )}
 
       {/* Выбор точки на запасной карте: overlay получает касание поверх iframe
           и переводит его в координаты видимой области карты. */}
@@ -579,7 +564,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       )}
 
       {placing && pendingLat == null && (
-        <div className="absolute bottom-28 left-1/2 z-20 w-[min(90vw,24rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-center text-sm font-bold text-white shadow-xl">
+        <div className="glass-control absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-1/2 z-20 w-[min(90vw,24rem)] -translate-x-1/2 rounded-2xl px-5 py-3 text-center text-sm font-bold text-[var(--text)] shadow-xl">
           Нажмите на нужное место карты
         </div>
       )}
@@ -593,14 +578,14 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
       )}
 
       {placing && mode === "fallback" && pendingLat != null && (
-        <div className="absolute bottom-28 left-1/2 z-20 w-[min(92vw,27rem)] -translate-x-1/2 rounded-2xl bg-ink/90 px-5 py-3 text-center text-sm font-bold text-white shadow-xl">
-          Для этой версии карты метка будет поставлена в центре экрана. Нажмите «Опубликовать» ниже.
+        <div className="glass-control absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-1/2 z-20 w-[min(92vw,27rem)] -translate-x-1/2 rounded-2xl px-5 py-3 text-center text-sm font-bold text-[var(--text)] shadow-xl">
+          Точка выбрана. Добавьте описание и опубликуйте метку.
         </div>
       )}
 
       {/* Форма создания метки */}
       {placing && pendingLat != null && pendingLng != null && (
-        <div className="absolute inset-x-0 bottom-0 z-30 rounded-t-[2rem] bg-[var(--surface)] px-5 pb-8 pt-6 shadow-[0_-8px_40px_rgba(0,0,0,.15)]">
+        <div className="glass-panel absolute inset-x-3 bottom-3 z-30 rounded-[2rem] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5 shadow-[0_-8px_40px_rgba(0,0,0,.22)] sm:inset-x-5 sm:bottom-5">
           <h3 className="mb-4 text-lg font-black tracking-tight text-ink">Новая метка</h3>
           <div className="mb-4 flex flex-wrap gap-2">
             {CATEGORIES.map((cat) => (
@@ -611,7 +596,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                   pendingCategory === cat.id
                     ? "bg-ink text-white"
-                    : "bg-[var(--surface-soft)] text-[var(--text-soft)] hover:bg-slate-200"
+                    : "bg-[var(--surface-soft)] text-[var(--text-soft)] hover:bg-[var(--surface-strong)]"
                 }`}
               >
                 {cat.label}

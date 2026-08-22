@@ -16,8 +16,8 @@ export default async function AdminPage({
   const reports = await listReports(activeStatus);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-5 py-4">
+    <main className="min-h-screen bg-[var(--surface-soft)]">
+      <header className="border-b border-[var(--line)] bg-[var(--surface)] px-5 py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-tide">
@@ -44,7 +44,7 @@ export default async function AdminPage({
               className={`rounded-xl border px-4 py-2 text-sm font-bold transition ${
                 activeStatus === t.code
                   ? "border-ink bg-ink text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  : "border-[var(--line)] bg-[var(--surface)] text-[var(--text-soft)] hover:border-[var(--line-strong)]"
               }`}
             >
               {t.label}

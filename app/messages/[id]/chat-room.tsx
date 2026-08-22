@@ -107,7 +107,7 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
 
   return (
     <main className="mx-auto flex h-screen max-w-2xl flex-col">
-      <header className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-3 backdrop-blur">
+      <header className="glass-control flex items-center gap-3 rounded-b-2xl border-x-0 border-t-0 px-4 py-3">
         <Link href="/messages" className="rounded-lg px-2 py-1 text-lg font-black text-[var(--text-muted)] hover:text-ink">
           ←
         </Link>
@@ -153,7 +153,7 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-6 ${
-                  mine ? "bg-ink text-white" : "bg-[var(--surface-soft)] text-ink"
+                  mine ? "border border-[var(--line-strong)] bg-[var(--surface-strong)] text-[var(--text)]" : "border border-[var(--line)] bg-[var(--surface-soft)] text-[var(--text)]"
                 }`}
               >
                 {m.body}
@@ -168,13 +168,13 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
       </div>
 
       {status === "blocked" && (
-        <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-center text-sm font-bold text-[var(--text-muted)]">
+        <div className="glass-control rounded-t-2xl border-x-0 border-b-0 px-4 py-4 text-center text-sm font-bold text-[var(--text-muted)]">
           Беседа заблокирована.
         </div>
       )}
 
       {awaitingMyAccept && (
-        <div className="border-t border-[var(--line)] bg-tide/5 px-4 py-4">
+        <div className="glass-control rounded-t-2xl border-x-0 border-b-0 px-4 py-4">
           <p className="mb-3 text-center text-sm text-[var(--text-soft)]">
             {partnerName} предлагает начать переписку. Принять приглашение?
           </p>
@@ -191,7 +191,7 @@ export function ChatRoom({ conversation, partner, initialMessages, me }: ChatRoo
       )}
 
       {canWrite && (
-        <div className="border-t border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+        <div className="glass-control rounded-t-2xl border-x-0 border-b-0 px-4 py-3">
           {status === "pending" && isInitiator && (
             <p className="mb-2 text-center text-xs text-[var(--text-muted)]">
               Приглашение отправлено. Собеседник ответит, когда примет его.

@@ -57,7 +57,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-3xl px-5">
         <div className="text-center">
           <h1 className="text-4xl font-black tracking-tight mb-4">Тарифы</h1>
-          <p className="text-slate-600 mb-8">
+          <p className="text-[var(--text-soft)] mb-8">
             Пробный тариф для поддержки проекта и получения будущих функций.
           </p>
         </div>
@@ -80,28 +80,28 @@ export default function PricingPage() {
           </div>
         )}
 
-        <div className="rounded-3xl border-2 border-tide bg-white p-8 shadow-glow">
+        <div className="rounded-3xl border-2 border-tide bg-[var(--surface)] p-8 shadow-glow">
           <div className="text-center">
             <h2 className="text-2xl font-black mb-2">Luma Pro</h2>
             <div className="my-4">
               <span className="text-5xl font-black text-tide">99₽</span>
-              <span className="text-slate-500">/месяц</span>
+              <span className="text-[var(--text-muted)]">/месяц</span>
             </div>
-            <p className="text-slate-600 mb-6">
+            <p className="text-[var(--text-soft)] mb-6">
               Поддержать проект и получить доступ к продвинутым функциям.
             </p>
 
             <div className="mb-6 text-left">
               <ul className="space-y-3">
-                <li className="flex items-center text-slate-700">
+                <li className="flex items-center text-[var(--text)]">
                   <span className="mr-2 text-tide">✓</span>
                   Все функции карты
                 </li>
-                <li className="flex items-center text-slate-700">
+                <li className="flex items-center text-[var(--text)]">
                   <span className="mr-2 text-tide">✓</span>
                   Поддержка проекта
                 </li>
-                <li className="flex items-center text-slate-700">
+                <li className="flex items-center text-[var(--text)]">
                   <span className="mr-2 text-tide">✓</span>
                   Будущие премиум-фичи
                 </li>
@@ -120,7 +120,7 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-[var(--text-muted)]">
           Безопасные платежи через Stripe. Отменить подписку в любой момент.
         </p>
       </div>
