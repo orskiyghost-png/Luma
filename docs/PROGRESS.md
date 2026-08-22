@@ -828,3 +828,16 @@ service_role, MapTiler и Supabase Access Token добавлены и подхв
 3. Позже (Фаза 3): бесплатный ключ MapTiler (maptiler.com → Account → Keys).
 
 ---
+
+
+## 2026-08-22 — Премиальный редизайн и UX карты
+
+- Проведён аудит инструкций, истории и структуры репозитория. Сохранены ограничения проекта: Supabase Auth, возрастной гейтинг 18+ для live locations/«Люди рядом», opt-in и RLS.
+- Обновлён app/globals.css: dark-glass палитра, холодный cyan-акцент, Manrope + DM Mono, единые радиусы/тени/focus-visible, reduced-motion и адаптивные состояния.
+- Обновлён components/site-header.tsx: стеклянная навигационная панель, inline SVG-иконки вместо декоративных emoji, улучшенная мобильная иерархия.
+- Обновлён components/map-view.tsx: геометрические символы для меток, установка черновой метки обычным кликом по карте, aria-pressed переключатель показа/скрытия сохранённых меток без удаления, обновлены location/nearby affordances.
+- Изменения опубликованы в ветке feat/premium-map-redesign тремя коммитами.
+
+**Осталось / известные проблемы:** нужно прогнать typecheck и prod-build в CI/локальном окружении и вручную проверить map smoke test на preview; автоматический merge в main не выполнялся.
+
+**Нужно от заказчика:** после проверки preview выбрать, создавать ли pull request на merge в main.
