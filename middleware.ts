@@ -13,10 +13,14 @@ export async function middleware(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map")) {
+    if (
+      request.nextUrl.pathname.startsWith("/profile") ||
+      request.nextUrl.pathname.startsWith("/map") ||
+      request.nextUrl.pathname.startsWith("/messages")
+    ) {
       const url = request.nextUrl.clone();
       url.pathname = "/auth";
-      url.searchParams.set("message", "Добавьте ключи Supabase в настройках Freebuff");
+      url.searchParams.set("message", "Добавьте ключи Supabase в настройках хостинга");
       return NextResponse.redirect(url);
     }
     return response;
@@ -45,7 +49,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if ((request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map")) && !user) {
+  if ((request.nextUrl.pathname.startsWith("/profile") || request.nextUrl.pathname.startsWith("/map") || request.nextUrl.pathname.startsWith("/messages")) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
     url.searchParams.set("returnTo", request.nextUrl.pathname);
@@ -56,5 +60,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/map/:path*", "/auth/callback"],
+  matcher: ["/profile/:path*", "/map/:path*", "/messages/:path*", "/auth/callback"],
 };

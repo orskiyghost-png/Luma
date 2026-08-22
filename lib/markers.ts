@@ -15,3 +15,6 @@ export const CATEGORIES = [
   { id: "hangout", label: "🎉 Гуляем", ttlHours: 6 },
   { id: "other", label: "📌 Другое", ttlHours: 12 },
 ] as const;
+
+/** Реакции на метки (тот же набор, что и в серверном действии toggleReaction). */
+export const REACTIONS = ["👍", "❤️", "⚠️", "🙏", "👀"] as const;

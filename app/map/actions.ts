@@ -17,6 +17,74 @@ export type MarkerRow = {
 
 export type MarkerActionResult = { error: string } | { ok: true };
 
+/** Набор доступных реакций на метку. */
+export const REACTION_TYPES = ["👍", "❤️", "⚠️", "🙏", "👀"] as const;
+export type ReactionType = (typeof REACTION_TYPES)[number];
+
+export type ReactionSummary = {
+  counts: Record<string, number>;
+  mine: string[];
+};
+
+/** Реакции по одной метке: сколько какого типа и что поставил я. */
+export async function getMarkerReactions(markerId: string): Promise<ReactionSummary> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data } = await supabase
+    .from("reactions")
+    .select("type, user_id")
+    .eq("target_type", "marker")
+    .eq("target_id", markerId);
+
+  const counts: Record<string, number> = {};
+  const mine: string[] = [];
+  for (const row of (data as { type: string; user_id: string }[] | null) ?? []) {
+    counts[row.type] = (counts[row.type] ?? 0) + 1;
+    if (user && row.user_id === user.id) mine.push(row.type);
+  }
+  return { counts, mine };
+}
+
+/** Переключает реакцию текущего пользователя на метку. */
+export async function toggleReaction(
+  markerId: string,
+  type: string,
+): Promise<{ error: string } | ReactionSummary> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Нужно войти в аккаунт." };
+  if (!REACTION_TYPES.includes(type as ReactionType)) return { error: "Неизвестная реакция." };
+
+  const { data: existing } = await supabase
+    .from("reactions")
+    .select("id")
+    .eq("target_type", "marker")
+    .eq("target_id", markerId)
+    .eq("user_id", user.id)
+    .eq("type", type)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase.from("reactions").delete().eq("id", existing.id);
+    if (error) return { error: "Не удалось убрать реакцию." };
+  } else {
+    const { error } = await supabase.from("reactions").insert({
+      target_type: "marker",
+      target_id: markerId,
+      user_id: user.id,
+      type,
+    });
+    if (error) return { error: "Не удалось поставить реакцию." };
+  }
+
+  return getMarkerReactions(markerId);
+}
+
 export async function saveCurrentLocation(lat: number, lng: number): Promise<MarkerActionResult> {
   const supabase = await createClient();
   const {

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, MapMouseEvent, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { addMarker, deleteMarker, getActiveMarkers, saveCurrentLocation, type MarkerRow } from "@/app/map/actions";
-import { CATEGORIES } from "@/lib/markers";
+import { addMarker, deleteMarker, getActiveMarkers, getMarkerReactions, saveCurrentLocation, toggleReaction, type MarkerRow, type ReactionSummary } from "@/app/map/actions";
+import { startConversation } from "@/app/messages/actions";
+import { CATEGORIES, REACTIONS } from "@/lib/markers";
 
 type MapViewProps = {
   styleUrl: string | null;
@@ -43,6 +45,7 @@ function buildMarkerEl(category: string): HTMLDivElement {
 }
 
 export default function MapView({ styleUrl, initialMarkers, currentUserId }: MapViewProps) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const userMarkerRef = useRef<Marker | null>(null);
@@ -74,6 +77,10 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
 
   /* ---- Попап метки ---- */
   const [popupMarker, setPopupMarker] = useState<MarkerRow | null>(null);
+  const [reactions, setReactions] = useState<ReactionSummary>({ counts: {}, mine: [] });
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
 
   const [markers, setMarkers] = useState<MarkerRow[]>(initialMarkers);
   const markersRef = useRef(markers);
@@ -320,6 +327,34 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
     setMarkers((prev) => prev.filter((m) => m.id !== markerId));
   }
 
+  // Реакции подгружаются при открытии попапа метки.
+  useEffect(() => {
+    if (!popupMarker) return;
+    let active = true;
+    setReactions({ counts: {}, mine: [] });
+    void getMarkerReactions(popupMarker.id)
+      .then((summary) => { if (active) setReactions(summary); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [popupMarker]);
+
+  async function handleToggleReaction(type: string) {
+    if (!popupMarker || reactionBusy) return;
+    setReactionBusy(true);
+    const result = await toggleReaction(popupMarker.id, type);
+    setReactionBusy(false);
+    if (!("error" in result)) setReactions(result);
+  }
+
+  async function handleContactAuthor(authorId: string) {
+    setContactError(null);
+    setContactBusy(true);
+    const result = await startConversation(authorId);
+    setContactBusy(false);
+    if ("error" in result) { setContactError(result.error); return; }
+    router.push(`/messages/${result.conversationId}`);
+  }
+
   // ====== OSM fallback ======
   const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(`${osmBounds.west},${osmBounds.south},${osmBounds.east},${osmBounds.north}`)}&layer=mapnik&marker=${center.lat},${center.lng}`;
   const fallbackPointStyle = (lat: number, lng: number) => ({
@@ -334,7 +369,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         <div className="form-card max-w-md text-center">
           <h1 className="text-2xl font-black tracking-tight">Карта скоро появится</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Не задан ключ карт (NEXT_PUBLIC_MAPTILER_KEY). Добавьте его в настройках Freebuff.
+            Не задан ключ карт (NEXT_PUBLIC_MAPTILER_KEY). Добавьте его в переменные окружения.
           </p>
           <Link href="/profile" className="secondary-button mt-6 inline-flex">В профиль</Link>
         </div>
@@ -391,6 +426,7 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
         </Link>
         <div className="pointer-events-auto flex items-center gap-2">
           {city && <span className="hidden rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur sm:block">📍 {city}</span>}
+          <Link href="/messages" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Сообщения</Link>
           <Link href="/profile" className="rounded-2xl bg-white/90 px-4 py-2.5 text-sm font-bold text-ink shadow-lg backdrop-blur transition hover:bg-white">Профиль</Link>
         </div>
       </header>
@@ -517,8 +553,48 @@ export default function MapView({ styleUrl, initialMarkers, currentUserId }: Map
                 return left <= 0 ? "истекает" : `ещё ≈${left} ч`;
               })()}
             </p>
-            {popupMarker.author_id === currentUserId && (
+
+            {/* Реакции */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {REACTIONS.map((emoji) => {
+                const count = reactions.counts[emoji] ?? 0;
+                const active = reactions.mine.includes(emoji);
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    disabled={reactionBusy}
+                    onClick={() => handleToggleReaction(emoji)}
+                    className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-bold transition disabled:opacity-60 ${
+                      active
+                        ? "border-tide bg-tide/15 text-ink"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <span>{emoji}</span>
+                    {count > 0 && <span className="text-xs">{count}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {popupMarker.author_id === currentUserId ? (
               <button type="button" onClick={() => handleDelete(popupMarker.id)} className="mt-4 text-sm font-bold text-coral hover:underline">Удалить метку</button>
+            ) : (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  disabled={contactBusy}
+                  onClick={() => handleContactAuthor(popupMarker.author_id)}
+                  className="primary-button w-full disabled:opacity-60"
+                >
+                  {contactBusy ? "Открываем…" : "✉️ Написать автору"}
+                </button>
+                {contactError && <p className="mt-2 text-sm font-bold text-coral">{contactError}</p>}
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Автор получит приглашение к переписке и сможет его принять или отклонить.
+                </p>
+              </div>
             )}
             <button type="button" onClick={() => setPopupMarker(null)} className="mt-3 block w-full text-center text-xs font-bold text-slate-400 hover:text-ink">Закрыть</button>
           </div>
