@@ -4,14 +4,17 @@ import { redirect } from "next/navigation";
 import { normalizeSupabaseUrl } from "@/lib/supabase/client";
 import { createClient } from "@/lib/supabase/server";
 
-export type AuthState = { error: string | null };
-
-function canUsePreviewAdmin() {
-  return process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview";
-}
+export type AuthState = { error: string | null; message?: string | null };
 
 function hasSupabaseConfig() {
   return Boolean(normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}
+
+function siteUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (process.env.VERCEL_URL) return "https://" + process.env.VERCEL_URL;
+  return "http://localhost:3000";
 }
 
 function getAge(dateOfBirth: string) {
@@ -31,45 +34,6 @@ function readCredentials(formData: FormData) {
   };
 }
 
-async function devAdminCreateUser(email: string, password: string, metadata: Record<string, unknown>): Promise<"ok" | "exists" | "failed"> {
-  const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!canUsePreviewAdmin() || !base || !serviceKey) return "failed";
-  try {
-    const response = await fetch(base + "/auth/v1/admin/users", {
-      method: "POST",
-      headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: metadata }),
-    });
-    if (response.ok) return "ok";
-    if (response.status === 422) return "exists";
-    return "failed";
-  } catch {
-    return "failed";
-  }
-}
-
-async function devConfirmExistingUser(email: string): Promise<boolean> {
-  const base = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!canUsePreviewAdmin() || !base || !serviceKey) return false;
-  try {
-    const listResponse = await fetch(base + "/auth/v1/admin/users?per_page=200", { headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey } });
-    if (!listResponse.ok) return false;
-    const payload = (await listResponse.json()) as { users?: Array<{ id: string; email?: string }> };
-    const target = payload.users?.find((user) => user.email?.toLowerCase() === email);
-    if (!target) return false;
-    const confirmResponse = await fetch(base + "/auth/v1/admin/users/" + target.id, {
-      method: "PUT",
-      headers: { apikey: serviceKey, Authorization: "Bearer " + serviceKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ email_confirm: true }),
-    });
-    return confirmResponse.ok;
-  } catch {
-    return false;
-  }
-}
-
 export async function signUp(_previous: AuthState, formData: FormData): Promise<AuthState> {
   const { email, password } = readCredentials(formData);
   const dateOfBirth = String(formData.get("dateOfBirth") ?? "");
@@ -80,17 +44,15 @@ export async function signUp(_previous: AuthState, formData: FormData): Promise<
   if (getAge(dateOfBirth) < 16) return { error: "Регистрация доступна только с 16 лет." };
 
   const supabase = await createClient();
-  const devResult = await devAdminCreateUser(email, password, { date_of_birth: dateOfBirth, display_name: displayName });
-  if (devResult === "ok" || devResult === "exists") {
-    const signedIn = await supabase.auth.signInWithPassword({ email, password });
-    if (!signedIn.error) redirect("/profile");
-    if (devResult === "exists") return { error: "Аккаунт с таким email уже существует. Переключитесь на «Войти»." };
-  }
-
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { date_of_birth: dateOfBirth, display_name: displayName } } });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { date_of_birth: dateOfBirth, display_name: displayName }, emailRedirectTo: siteUrl() + "/auth/callback" },
+  });
   if (error) {
-    if (/rate limit/i.test(error.message)) return { error: "Слишком много регистраций подряд. Подождите пару минут и попробуйте ещё раз." };
-    return { error: error.message };
+    if (/already registered|already exists/i.test(error.message)) return { error: "Аккаунт с таким email уже существует. Переключитесь на «Войти»." };
+    if (/rate limit/i.test(error.message)) return { error: "Слишком много попыток. Подождите пару минут и попробуйте снова." };
+    return { error: "Не удалось создать аккаунт. Проверьте данные и попробуйте ещё раз." };
   }
   if (data.session) redirect("/profile");
   redirect("/auth?message=" + encodeURIComponent("Проверьте почту и подтвердите аккаунт по ссылке из письма"));
@@ -100,20 +62,25 @@ export async function signIn(_previous: AuthState, formData: FormData): Promise<
   const { email, password } = readCredentials(formData);
   if (!hasSupabaseConfig()) return { error: "Вход временно недоступен: подключение к Supabase не настроено для этого окружения." };
   if (!email.includes("@") || !password) return { error: "Введите email и пароль." };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    if (/confirm/i.test(error.message)) {
-      const fixed = await devConfirmExistingUser(email);
-      if (fixed) {
-        const retry = await supabase.auth.signInWithPassword({ email, password });
-        if (!retry.error) redirect("/profile");
-      }
-      return { error: "Аккаунт найден, но почта ещё не подтверждена. Для preview мы попробовали исправить это автоматически. Повторите вход." };
-    }
+    if (/confirm/i.test(error.message)) return { error: "Подтвердите email по ссылке из письма, затем повторите вход." };
     return { error: "Не удалось войти. Проверьте email и пароль." };
   }
   redirect("/profile");
+}
+
+export async function requestPasswordReset(_previous: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!hasSupabaseConfig()) return { error: "Восстановление временно недоступно: подключение к Supabase не настроено." };
+  if (!email.includes("@")) return { error: "Введите email, на который зарегистрирован аккаунт." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: siteUrl() + "/auth/callback?type=recovery" });
+  if (error) return { error: "Не удалось отправить письмо. Проверьте email и настройки почты Supabase." };
+  return { error: null, message: "Если аккаунт существует, письмо для восстановления уже отправлено." };
 }
 
 export async function signOut() {
